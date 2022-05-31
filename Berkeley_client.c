@@ -34,18 +34,20 @@ int main(int argc, char* argv[]) {
 	else {
 		puts("");
 		puts("======== MENU ========");
+		puts("[0] 서비스 종료");
 		puts("[1] 로그인");
 		puts("[2] 회원가입");
 		puts("[3] 전체 프로그램 조회");
 		puts("[4] 수강 신청 조회");
-		puts("[5] 서비스 종료");
+		puts("======================");
+		puts("");
 	}
 
 	while (1) {
 		fputs(">> ", stdout);
 		fgets(message, BUF_SIZE, stdin);
 
-		if (!strcmp(message, "5\n")) {
+		if (!strcmp(message, "0\n"))
 			break;
 		}
 
