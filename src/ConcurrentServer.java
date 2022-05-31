@@ -1,8 +1,10 @@
 import java.io.*;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+import java.sql.*;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Vector;
@@ -35,9 +37,17 @@ public class ConcurrentServer {
         // 서버 소켓 생성 및 바인딩
         try {
             serverSocket = new ServerSocket();
-            serverSocket.bind(new InetSocketAddress("localhost", PORT));
-        } catch(Exception e) {
-            if(!serverSocket.isClosed()) { stopServer(); }
+
+            InetAddress inetAddress = InetAddress.getLocalHost();
+            String localhost = inetAddress.getHostAddress();
+
+            serverSocket.bind(new InetSocketAddress(localhost, PORT));
+
+            System.out.println("[서버 시작: " + localhost + "]");
+        } catch (Exception e) {
+            if (!serverSocket.isClosed()) {
+                stopServer();
+            }
             return;
         }
 
@@ -45,18 +55,20 @@ public class ConcurrentServer {
         Runnable runnable = new Runnable() {
             @Override
             public void run() {
-                System.out.println("[서버 시작]");
-                while(true) {
+//                System.out.println("[서버 시작]");
+                while (true) {
                     try {
                         // 연결 수락
                         Socket socket = serverSocket.accept();
-                        System.out.println("[연결 수락: " + socket.getRemoteSocketAddress()  + ": " + Thread.currentThread().getName() + "]");
+                        System.out.println("[연결 수락: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
                         // 클라이언트 접속 요청 시 객체 하나씩 생성해서 저장
-                        Client client = new Client(socket,mySharedData, lock);
+                        Client client = new Client(socket, mySharedData, lock);
                         connections.add(client);
                         System.out.println("[연결 개수: " + connections.size() + "]");
                     } catch (Exception e) {
-                        if(!serverSocket.isClosed()) { stopServer(); }
+                        if (!serverSocket.isClosed()) {
+                            stopServer();
+                        }
                         break;
                     }
                 }
@@ -70,21 +82,22 @@ public class ConcurrentServer {
         try {
             // 모든 소켓 닫기
             Iterator<Client> iterator = connections.iterator();
-            while(iterator.hasNext()) {
+            while (iterator.hasNext()) {
                 Client client = iterator.next();
                 client.socket.close();
                 iterator.remove();
             }
             // 서버 소켓 닫기
-            if(serverSocket!=null && !serverSocket.isClosed()) {
+            if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
             }
             // 스레드풀 종료
-            if(executorService!=null && !executorService.isShutdown()) {
+            if (executorService != null && !executorService.isShutdown()) {
                 executorService.shutdown();
             }
             System.out.println("[서버 멈춤]");
-        } catch (Exception e) { }
+        } catch (Exception e) {
+        }
     }
 
     static class Client {
@@ -92,7 +105,7 @@ public class ConcurrentServer {
         private final SharedData mySharedData;
         private final Lock lock;
 
-        Client(Socket socket,SharedData mySharedData, Lock lock) {
+        Client(Socket socket, SharedData mySharedData, Lock lock) {
             this.socket = socket;
             this.mySharedData = mySharedData;
             this.lock = lock;
@@ -105,7 +118,7 @@ public class ConcurrentServer {
                 @Override
                 public void run() {
                     try {
-                        while(true) {
+                        while (true) {
                             byte[] byteArr = new byte[100];
                             InputStream inputStream = socket.getInputStream();
 
@@ -113,7 +126,9 @@ public class ConcurrentServer {
                             int readByteCount = inputStream.read(byteArr);
 
                             // 클라이언트가 정상적으로 Socket의 close()를 호출했을 경우
-                            if(readByteCount == -1) {  throw new IOException(); }
+                            if (readByteCount == -1) {
+                                throw new IOException();
+                            }
 
                             System.out.println("[요청 처리: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
 
@@ -125,22 +140,22 @@ public class ConcurrentServer {
 
 
                             // 클라이언트가 stop server라고 보내오면 서버 종료
-                            if(data.equals("stop server"))
-                            {
+                            if (data.equals("stop server")) {
                                 stopServer();
                             }
 
                             // 모든 클라이언트에게 데이터 보냄
-                            for(Client client : connections) {
+                            for (Client client : connections) {
                                 client.send(data);
                             }
                         }
-                    } catch(Exception e) {
+                    } catch (Exception e) {
                         try {
                             connections.remove(Client.this);
                             System.out.println("[클라이언트 통신 안됨: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
                             socket.close();
-                        } catch (IOException e2) {}
+                        } catch (IOException e2) {
+                        }
                     }
                 }
             };
@@ -160,12 +175,13 @@ public class ConcurrentServer {
                         // 데이터 write
                         outputStream.write(byteArr);
                         outputStream.flush();
-                    } catch(Exception e) {
+                    } catch (Exception e) {
                         try {
                             System.out.println("[클라이언트 통신 안됨: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
                             connections.remove(Client.this);
                             socket.close();
-                        } catch (IOException e2) {}
+                        } catch (IOException e2) {
+                        }
                     }
                 }
             };
@@ -174,8 +190,161 @@ public class ConcurrentServer {
         }
     }
 
+    public class DBDriver {
+        private final static String URL = "jdbc:mysql://127.0.0.1:3306/jdbc?serverTimezone=Asia/Seoul&useSSL=false";
+        private final static String USER = "root";
+        private final static String PASSWORD = "1234";
+
+        public DBDriver() {
+        }
+
+        void DBSelect() {
+            Connection conn = null;
+            Statement stmt = null;
+            ResultSet rs = null;
+            try { //Reflection 방식
+                conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 객체 생성
+                stmt = conn.createStatement(); // Statement 객체 생성
+
+                String sql;
+                sql = "select * from user";
+                rs = stmt.executeQuery(sql);
+
+                while (rs.next()) { // ResultSet에 저장된 데이터 얻기 (결과 2개 이상)
+                    String userId = rs.getString("user_id");
+                    String password = rs.getString("password");
+                    int age = rs.getInt("age");
+                    String userPhone = rs.getString("user_phone");
+                    System.out.println(userId + "\t" + password + "\t" + age + "\t" + userPhone);
+                }
+
+//                 if(rs.next()) { // ResultSet에 저장된 데이터 얻기 (결과 1개)
+//
+//                 }
+//                 else {
+//
+//                 }
+
+            } catch (SQLException e) {
+                System.out.println("SQL Error : " + e.getMessage());
+            } finally {
+                // 사용순서와 반대로 close 함
+                if (rs != null) {
+                    try {
+                        rs.close();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (stmt != null) {
+                    try {
+                        stmt.close();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (conn != null) {
+                    try {
+                        conn.close();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+
+        void DBInsert() {
+            Connection conn = null; // DB와 연결하기 위한 객체
+            PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
+            try { //Reflection 방식
+                conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
+
+                String sql;
+                sql = "insert into user(user_id, password, age, user_phone) values(?,?,?,?)";
+                pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
+
+                pstmt.setString(1, "user123");
+                pstmt.setString(2, "5678");
+                pstmt.setInt(3, Integer.parseInt("24"));
+                pstmt.setString(4, "010-1234-9876");
+
+                int r = pstmt.executeUpdate(); // SQL 문장을 실행하고 결과를 리턴 (SQL 문장 실행 후, 변경된 row 수 int type 리턴)
+
+            } catch (SQLException e) {
+                System.out.println("[SQL Error : " + e.getMessage() + "]");
+            } finally {
+                // 사용순서와 반대로 close 함
+                pstmtAndConnClose(conn, pstmt);
+            }
+        }
+
+        private void pstmtAndConnClose(Connection conn, PreparedStatement pstmt) {
+            if (pstmt != null) {
+                try {
+                    pstmt.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            if (conn != null) {
+                try {
+                    conn.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        void DBUpdate() {
+            Connection conn = null; // DB와 연결하기 위한 객체
+            PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
+            try { //Reflection 방식
+                conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
+
+                String sql;
+                sql = "update user set password=?, age=?, user_phone=? where user_id=?";
+                pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
+
+                pstmt.setString(1, "user123");
+                pstmt.setString(2, "9876");
+                pstmt.setInt(3, Integer.parseInt("24"));
+                pstmt.setString(4, "010-3323-9876");
+
+                int r = pstmt.executeUpdate(); // SQL 문장을 실행하고 결과를 리턴 (SQL 문장 실행 후, 변경된 row 수 int type 리턴)
+
+            } catch (SQLException e) {
+                System.out.println("[SQL Error : " + e.getMessage() + "]");
+            } finally {
+                // 사용순서와 반대로 close 함
+                pstmtAndConnClose(conn, pstmt);
+            }
+        }
+
+        void DBDelete() {
+            Connection conn = null; // DB와 연결하기 위한 객체
+            PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
+            try { //Reflection 방식
+                conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
+
+                String sql;
+                sql = "delete from user where id=?";
+                pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
+
+                pstmt.setString(1, "user1234");
+
+                int r = pstmt.executeUpdate(); // SQL 문장을 실행하고 결과를 리턴 (SQL 문장 실행 후, 변경된 row 수 int type 리턴)
+
+            } catch (SQLException e) {
+                System.out.println("[SQL Error : " + e.getMessage() + "]");
+            } finally {
+                // 사용순서와 반대로 close 함
+                pstmtAndConnClose(conn, pstmt);
+            }
+        }
+    }
+
     public static void main(String[] args) {
         startServer();
     }
-
 }
