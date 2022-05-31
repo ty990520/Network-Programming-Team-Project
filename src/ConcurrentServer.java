@@ -160,8 +160,21 @@ public class ConcurrentServer {
                                     pw.println("로그인에 실패하였습니다. 다시 시도해주세요.");
                             } else if (buffer.equals("2")) {
                                 pw.println("--------- 회원가입 ---------\n등록할 사용자 아이디를 입력해주세요.");
-                                String userid = userInput(br);
-                                if (userid == null) break;
+                                boolean check = true;
+                                String userid = "";
+
+                                while (check) {
+                                    userid = userInput(br);
+                                    if (userid == null) break;
+
+                                    DBDriver dbDriver = new DBDriver();
+                                    check = dbDriver.checkUserId(userid);
+
+                                    if (check)
+                                        pw.println("중복된 아이디가 있습니다. 다시 입력해주세요.");
+                                    else
+                                        break;
+                                }
                                 pw.println("등록할 사용자 패스워드를 입력해주세요.");
                                 String password = userInput(br);
                                 if (password == null) break;
@@ -439,6 +452,41 @@ public class ConcurrentServer {
                 // 사용순서와 반대로 close 함
                 pstmtAndConnClose(conn, pstmt);
             }
+        }
+
+        boolean checkUserId(String userid) {
+            Connection conn = null; // DB와 연결하기 위한 객체
+            PreparedStatement pstmt = null;
+            ResultSet rs = null;
+
+            try {
+                conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
+
+                String sql;
+                sql = "select * from user where user_id = ?";
+                pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
+                pstmt.setString(1, userid);
+                rs = pstmt.executeQuery();
+
+                if (rs.next())
+                    return true;
+                else
+                    return false;
+
+            } catch (SQLException e) {
+                System.out.println("[SQL Error : " + e.getMessage() + "]");
+            } finally {
+                // 사용순서와 반대로 close 함
+                if (rs != null) {
+                    try {
+                        rs.close();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+                pstmtAndConnClose(conn, pstmt);
+            }
+            return false;
         }
 
         boolean checkPassword(String userid, String password) {
