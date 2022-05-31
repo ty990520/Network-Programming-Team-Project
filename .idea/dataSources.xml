@@ -1,19 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
-<<<<<<< HEAD
-    <data-source source="LOCAL" name="serverdb@localhost" uuid="a69a776e-1584-41b7-bc63-5841ec42d3a4">
+    <data-source source="LOCAL" name="@localhost" uuid="8077c0b9-ef44-442c-ba97-aa0c2d0feeb3">
       <driver-ref>mysql.8</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>com.mysql.cj.jdbc.Driver</jdbc-driver>
-      <jdbc-url>jdbc:mysql://localhost:3306/serverdb</jdbc-url>
-=======
-    <data-source source="LOCAL" name="JDBC@localhost" uuid="d129e4ef-02b4-4376-aeb7-34eef6ae5a7d">
+      <jdbc-url>jdbc:mysql://localhost:3306</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
+    <data-source source="LOCAL" name="jdbc@localhost" uuid="a71a71f8-544c-4152-86dc-579f418908aa">
       <driver-ref>mysql.8</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>com.mysql.cj.jdbc.Driver</jdbc-driver>
-      <jdbc-url>jdbc:mysql://127.0.0.1:3306/jdbc</jdbc-url>
->>>>>>> ee87823d7881d22e6295dd80e781f9fc5546f6d7
+      <jdbc-url>jdbc:mysql://localhost:3306/jdbc</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
+    <data-source source="LOCAL" name="JDBC@localhost" uuid="20febf84-bac0-41d9-b61d-ce21b87868d6">
+      <driver-ref>mysql.8</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>com.mysql.cj.jdbc.Driver</jdbc-driver>
+      <jdbc-url>jdbc:mysql://localhost:3306/JDBC</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
   </component>
