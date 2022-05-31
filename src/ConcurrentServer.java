@@ -119,35 +119,64 @@ public class ConcurrentServer {
                 public void run() {
                     try {
                         while (true) {
-                            byte[] byteArr = new byte[100];
-                            InputStream inputStream = socket.getInputStream();
+//                            byte[] byteArr = new byte[100];
+//                            InputStream inputStream = socket.getInputStream();
+//
+//                            // 데이터 read
+//                            int readByteCount = inputStream.read(byteArr);
+//
+//                            // 클라이언트가 정상적으로 Socket의 close()를 호출했을 경우
+//                            if (readByteCount == -1) {
+//                                throw new IOException();
+//                            }
+                            InputStream is = socket.getInputStream();
+                            InputStreamReader isr = new InputStreamReader(is, "UTF-8");
+                            BufferedReader br = new BufferedReader(isr);
+                            // outputStream 가져와서 StreamWriter, PrintWriter로 감싼다
+                            OutputStream os = socket.getOutputStream();
+                            OutputStreamWriter osw = new OutputStreamWriter(os, "UTF-8");
+                            PrintWriter pw = new PrintWriter(osw, true);
+                            // String intro = "\n : 줄 띄어쓰기 \n 안녕하세요";
+                            String buffer = null;
+                            int temp;
 
-                            // 데이터 read
-                            int readByteCount = inputStream.read(byteArr);
+                            String selstore;
+                            buffer = br.readLine();
 
-                            // 클라이언트가 정상적으로 Socket의 close()를 호출했을 경우
-                            if (readByteCount == -1) {
-                                throw new IOException();
+                            if (buffer == null) {
+                                System.out.println("[server] closed by client");
+                                break;
                             }
 
                             System.out.println("[요청 처리: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
 
                             // 문자열로 변환
-                            String data = new String(byteArr, 0, readByteCount, "UTF-8");
+
+                            //----------------------------------
+                            System.out.println("[server] recieved : " + buffer);
 
 
-                            /*여기에 코드 작성하면 됨!!!!!!*/
+                            //----------------------------------
+                            if (buffer.equals("1")) {
+                                System.out.println("메뉴 1번을 눌렀습니다.");
+                            } else if (buffer.equals("2")) {
+                                System.out.println("메뉴 2번을 눌렀습니다.");
 
+                            } else if (buffer.equals("3")) {
+                                System.out.println("메뉴 3번을 눌렀습니다.");
 
-                            // 클라이언트가 stop server라고 보내오면 서버 종료
-                            if (data.equals("stop server")) {
-                                stopServer();
+                            } else if (buffer.equals("4")) {
+                                System.out.println("메뉴 4번을 눌렀습니다.");
+
+                            } else if (buffer.equals("5")) {
+                                System.out.println("메뉴 5번을 눌렀습니다.");
                             }
+
 
                             // 모든 클라이언트에게 데이터 보냄
-                            for (Client client : connections) {
-                                client.send(data);
-                            }
+//                            for (Client client : connections) {
+//                                client.send(data);
+//                            }
                         }
                     } catch (Exception e) {
                         try {
