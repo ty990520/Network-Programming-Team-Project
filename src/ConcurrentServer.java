@@ -163,7 +163,7 @@ public class ConcurrentServer {
                                 System.out.println("메뉴 2번을 눌렀습니다.");
 
                             } else if (buffer.equals("3")) {
-                                System.out.println("메뉴 3번을 눌렀습니다.");
+                                System.out.println("전체 프로그램 조회");
 
                             } else if (buffer.equals("4")) {
                                 System.out.println("메뉴 4번을 눌렀습니다.");
@@ -361,6 +361,41 @@ public class ConcurrentServer {
                 pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
 
                 pstmt.setString(1, "user1234");
+
+                int r = pstmt.executeUpdate(); // SQL 문장을 실행하고 결과를 리턴 (SQL 문장 실행 후, 변경된 row 수 int type 리턴)
+
+            } catch (SQLException e) {
+                System.out.println("[SQL Error : " + e.getMessage() + "]");
+            } finally {
+                // 사용순서와 반대로 close 함
+                pstmtAndConnClose(conn, pstmt);
+            }
+        }
+
+        void DBSelectLike(String target, String keyword) {
+            Connection conn = null; // DB와 연결하기 위한 객체
+            PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
+            ResultSet rs = null;
+            try { //Reflection 방식
+                conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
+
+                String sql;
+                sql = "select * from lecture where " + target + " like ?";
+                pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
+                rs = pstmt.executeQuery(sql);
+                pstmt.setString(1, "%" + keyword + "%");
+
+                while (rs.next()) { // ResultSet에 저장된 데이터 얻기 (결과 2개 이상)
+
+                    int lectureId = rs.getInt(1);
+                    String lectureName = rs.getString(2);
+                    String institution = rs.getString(3);
+                    String manager = rs.getString(4);
+                    int cnt_participant = rs.getInt(5);
+                    int max_participant = rs.getInt(6);
+                    System.out.println(lectureId + "\t" + lectureName + "\t" + institution + "\t" + manager + "\t" + cnt_participant + "\t" + max_participant);
+                }
+
 
                 int r = pstmt.executeUpdate(); // SQL 문장을 실행하고 결과를 리턴 (SQL 문장 실행 후, 변경된 row 수 int type 리턴)
 

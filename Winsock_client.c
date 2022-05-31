@@ -47,7 +47,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	while (1) {
-		fputs("Choice [1 - 5] >>", stdout);
+		fputs(">> ", stdout);
 		fgets(message, BUF_SIZE, stdin);
 
 		if (!strcmp(message, "5\n"))
