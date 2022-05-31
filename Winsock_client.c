@@ -1,3 +1,5 @@
+#define _WINSOCK_DEPRECATED_NO_WARNINGS // 최신 VC++ 컴파일 시 경고 방지
+#pragma comment(lib, "ws2_32")
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,7 +10,7 @@
 void ErrorHandling(char* message);
 
 int main(int argc, char* argv[]) {
-	_wsetlocale(LC_ALL, L"korean");      //지역화 설정을 전역적으로 적용
+	_wsetlocale(LC_ALL, L"korean");
 	WSADATA wsaData;
 	SOCKET hSocket;
 	char message[BUF_SIZE];
@@ -16,7 +18,7 @@ int main(int argc, char* argv[]) {
 	SOCKADDR_IN servAdr;
 
 	if (argc != 3) {
-		printf("Usage : %s <IP> <port> \n", argv[0]);
+		printf("Usage : %s [IP address] [Port]\n", argv[0]);
 		exit(1);
 	}
 
@@ -36,16 +38,19 @@ int main(int argc, char* argv[]) {
 	}
 	else {
 		puts("");
-		puts("1. 음식점 확인");
-		puts("2. 예약확인");
-		puts("3. 아이디 / 전화번호 입력");
+		puts("======== MENU ========");
+		puts("[1] 로그인");
+		puts("[2] 회원가입");
+		puts("[3] 전체 프로그램 조회");
+		puts("[4] 수강 신청 조회");
+		puts("[5] 서비스 종료");
 	}
 
 	while (1) {
-		fputs(">>", stdout);
+		fputs("Choice [1 - 5] >>", stdout);
 		fgets(message, BUF_SIZE, stdin);
 
-		if (!strcmp(message, "q\n") || !strcmp(message, "Q\n"))
+		if (!strcmp(message, "5\n"))
 			break;
 
 		send(hSocket, message, strlen(message), 0);
@@ -59,6 +64,7 @@ int main(int argc, char* argv[]) {
 }
 
 void ErrorHandling(char* message) {
+	fputs("input : ", stderr);
 	fputs(message, stderr);
 	fputc('\n', stderr);
 	exit(1);
