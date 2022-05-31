@@ -1,4 +1,4 @@
-#define _WINSOCK_DEPRECATED_NO_WARNINGS // ìµœì‹  VC++ ì»´íŒŒì¼ ì‹œ ê²½ê³  ë°©ì§€
+#define _WINSOCK_DEPRECATED_NO_WARNINGS // ÃÖ½Å VC++ ÄÄÆÄÀÏ ½Ã °æ°í ¹æÁö
 #pragma comment(lib, "ws2_32")
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,11 +39,11 @@ int main(int argc, char* argv[]) {
 	else {
 		puts("");
 		puts("======== MENU ========");
-		puts("[1] ë¡œê·¸ì¸");
-		puts("[2] íšŒì›ê°€ì…");
-		puts("[3] ì „ì²´ í”„ë¡œê·¸ë¨ ì¡°íšŒ");
-		puts("[4] ìˆ˜ê°• ì‹ ì²­ ì¡°íšŒ");
-		puts("[5] ì„œë¹„ìŠ¤ ì¢…ë£Œ");
+		puts("[1] ·Î±×ÀÎ");
+		puts("[2] È¸¿ø°¡ÀÔ");
+		puts("[3] ÀüÃ¼ ÇÁ·Î±×·¥ Á¶È¸");
+		puts("[4] ¼ö°­ ½ÅÃ» Á¶È¸");
+		puts("[5] ¼­ºñ½º Á¾·á");
 	}
 
 	while (1) {
@@ -64,7 +64,6 @@ int main(int argc, char* argv[]) {
 }
 
 void ErrorHandling(char* message) {
-	fputs("input : ", stderr);
 	fputs(message, stderr);
 	fputc('\n', stderr);
 	exit(1);
