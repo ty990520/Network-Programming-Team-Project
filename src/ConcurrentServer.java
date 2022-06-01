@@ -143,37 +143,108 @@ public class ConcurrentServer {
                             //----------------------------------
                             System.out.println("[server] recieved : " + buffer);
 
+                            DBDriver dbDriver = new DBDriver();
+
 
                             //----------------------------------
                             if (buffer.equals("1")) {
-                                pw.println("---------로그인---------");
-                            } else if (buffer.equals("2")) {
-                                pw.println("---------회원가입---------\n등록할 사용자 아이디를 입력해주세요. >> ");
+                                pw.println("--------- 로그인 ---------\n사용자 아이디를 입력해주세요.");
                                 String userid = userInput(br);
-                                if (userid == null) break;
-                                pw.println("등록할 사용자 패스워드를 입력해주세요. >> ");
-                                String userpw = userInput(br);
-                                if (userpw == null) break;
-                                pw.println("등록할 사용자의 나이를 입력해주세요. >> ");
+                                pw.println("사용자 패스워드를 입력해주세요.");
+                                String password = userInput(br);
+                                boolean login = false;
+
+                                login = dbDriver.checkPassword(userid, password);
+                                if (login) {
+                                    pw.println("로그인을 완료하였습니다!");    //클라이언트 코드에서 flag로 로그아웃 제어
+                                    dbDriver.DBSelectFindUser(userid, Thread.currentThread().getName());
+                                    System.out.println("\t\tid\t|\tuserpw\t|\tage\t|\tphone\t|\tthreadName");
+                                    System.out.println("------------------------------------------");
+                                    for (User loginUser : loginUsers) {
+                                        System.out.println("\t" + loginUser.getUserid() + "\t|\t" + loginUser.getUserpw() + "\t|\t" + loginUser.getAge() + "\t|\t" + loginUser.getPhone() + "\t|\t" + loginUser.getThreadName());
+                                    }
+                                } else
+                                    pw.println("로그인에 실패하였습니다. 다시 시도해주세요.");
+                            } else if (buffer.equals("2")) {
+                                pw.println("--------- 회원가입 ---------\n등록할 사용자 아이디를 입력해주세요.");
+                                boolean check = true;
+                                String userid = "";
+
+                                while (check) {
+                                    userid = userInput(br);
+                                    if (userid == null) break;
+
+                                    check = dbDriver.checkUserId(userid);
+
+                                    if (check)
+                                        pw.println("중복된 아이디가 있습니다. 다시 입력해주세요.");
+                                    else
+                                        break;
+                                }
+                                pw.println("등록할 사용자 패스워드를 입력해주세요.");
+                                String password = userInput(br);
+                                if (password == null) break;
+                                pw.println("등록할 사용자의 나이를 입력해주세요.");
                                 String age = userInput(br);
                                 if (age == null) break;
-                                pw.println("등록할 사용자 전화번호를 입력해주세요. >> ");
+                                pw.println("등록할 사용자 전화번호를 입력해주세요.");
                                 String phone = userInput(br);
                                 if (phone == null) break;
-                                DBDriver dbDriver = new DBDriver();
-                                int result = dbDriver.DBInsert(userid, userpw, age, phone);
+
+                                int result = dbDriver.DBInsert(userid, password, age, phone);
                                 if (result != 0) {
                                     pw.println("회원가입을 완료하였습니다!");
-                                    System.out.println(userid+"님 회원가입 완료");
+                                    System.out.println(userid + "님 회원가입 완료");
                                 } else pw.println("회원가입에 실패하였습니다. 다시 시도해주세요.");
                             } else if (buffer.equals("3")) {
-                                System.out.println("메뉴 3번을 눌렀습니다.");
+
+                                pw.println("--------- 전체 프로그램 조회 ---------\n"
+                                        + "| 강의 번호\t| 강의명\t\t| 담당 기관\t| 담당 직원\t| 신청 인원\t| 수강 인원\t|\n"
+                                        + dbDriver.DBSelect() + "\n[1] 프로그램 신청하기\n[2] 프로그램 검색하기");
+                                buffer = br.readLine();
+                                if (buffer.equals("1")) {
+                                    int loginFlag = 0;
+                                    for (User loginUser : loginUsers) {
+                                        /*로그인 안한 사용자 처리해야됨*/
+                                        if (loginUser.getThreadName().equals(Thread.currentThread().getName())) { //로그인 사용자
+                                            loginFlag = 1;
+                                            pw.println("신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
+                                            int lectureId = Integer.parseInt(br.readLine());
+                                            if(dbDriver.isNotFull(lectureId)){                                              //검증1 : 프로그램 인원 제한 검증
+                                                if(!dbDriver.alreadyRegister(lectureId, loginUser.getUserid())){            //검증2 : 이미 등록한 사용자 검증
+                                                    if (dbDriver.validationRegister(lectureId, loginUser.getAge())) {       //검증3 : 프로그램 신청 조건 만족 여부 검증
+                                                        int result = dbDriver.registerLecture(loginUser.getUserid(), lectureId);
+                                                        if (result == 1) {
+                                                            dbDriver.DBUpdateLectureCnt(lectureId);
+                                                            pw.println("프로그램이 신청되었습니다.");
+                                                        } else {
+                                                            pw.println("프로그램 신청을 실패하였습니다.");
+
+                                                        }
+                                                    } else {
+                                                        pw.println("해당 프로그램의 신청 조건이 만족되지 않았습니다.");
+                                                    }
+                                                }else{
+                                                    pw.println("이미 신청한 프로그램입니다.");
+                                                }
+                                            }else{
+                                                pw.println("프로그램 수강 가능 인원이 다 찼습니다.");
+                                            }
+                                            break;
+                                        }
+                                    }
+                                    if (loginFlag == 0) { //비로그인 사용자
+                                        pw.println("프로그램 신청을 위해 먼저 로그인해주세요.");
+                                    }
+                                } else if (buffer.equals("2")) {
+                                    //프로그램 검색 코드
+                                } else {
+                                    pw.println("잘못된 입력입니다.");
+                                }
 
                             } else if (buffer.equals("4")) {
-                                System.out.println("메뉴 4번을 눌렀습니다.");
+                                System.out.println("--------- 수강 신청 조회 ---------\n");
 
-                            } else if (buffer.equals("5")) {
-                                System.out.println("메뉴 5번을 눌렀습니다.");
                             }
 
 
@@ -194,7 +265,7 @@ public class ConcurrentServer {
 
                 private String userInput(BufferedReader br) throws IOException {
                     String userdata = br.readLine();
-                    if (userdata == null) {
+                    if (userdata.equals("")) {
                         System.out.println("회원가입을 취소합니다.");
                         return null;
                     }
@@ -233,31 +304,37 @@ public class ConcurrentServer {
     }
 
     public static class DBDriver {
-        private final static String URL = "jdbc:mysql://192.168.205.63:3306/jdbc?serverTimezone=Asia/Seoul&useSSL=false";
-        private final static String USER = "newuser";
-        private final static String PASSWORD = "1234";
+        private final static String URL = "jdbc:mysql://localhost:3306/jdbc?serverTimezone=Asia/Seoul&useSSL=false";
+        //                private final static String USER = "newuser";
+        private final static String USER = "root";
+        private final static String PASSWORD = "sun009538!@!";
 
         public DBDriver() {
         }
 
-        void DBSelect() {
+        public String DBSelect() {
             Connection conn = null;
             Statement stmt = null;
             ResultSet rs = null;
+            String result = "";
             try { //Reflection 방식
                 conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 객체 생성
                 stmt = conn.createStatement(); // Statement 객체 생성
 
                 String sql;
-                sql = "select * from user";
+                sql = "select * from lecture";
                 rs = stmt.executeQuery(sql);
 
                 while (rs.next()) { // ResultSet에 저장된 데이터 얻기 (결과 2개 이상)
-                    String userId = rs.getString("user_id");
-                    String password = rs.getString("password");
-                    int age = rs.getInt("age");
-                    String userPhone = rs.getString("user_phone");
-                    System.out.println(userId + "\t" + password + "\t" + age + "\t" + userPhone);
+                    int lectureId = rs.getInt("lecture_id");
+                    String lectureName = rs.getString("lecture_name");
+                    String institution = rs.getString("institution");
+                    String manager = rs.getString("manager");
+                    int cntParticipant = rs.getInt("cnt_participant");
+                    int maxParticipant = rs.getInt("max_participant");
+
+                    result += "| " + lectureId + "\t\t| " + lectureName + "\t| " + institution
+                            + "\t| " + manager + "\t| " + cntParticipant + "\t\t| " + maxParticipant + "\t\t|\n";
                 }
 
 //                 if(rs.next()) { // ResultSet에 저장된 데이터 얻기 (결과 1개)
@@ -293,9 +370,50 @@ public class ConcurrentServer {
                     }
                 }
             }
+            return result;
         }
 
-        public int DBInsert(String userid, String userpw, String age, String phone) {
+        User DBSelectFindUser(String userid, String threadName) {
+            Connection conn = null; // DB와 연결하기 위한 객체
+            PreparedStatement pstmt = null;
+            ResultSet rs = null;
+
+            try {
+                conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
+
+                String sql;
+                sql = "select * from user where user_id = ?";
+                pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
+                pstmt.setString(1, userid);
+                rs = pstmt.executeQuery();
+
+
+                if (rs.next()) {
+                    String userpw = rs.getString("password");
+                    int age = rs.getInt("age");
+                    String phone = rs.getString("user_phone");
+                    User loginUser = new User(userid, userpw, age, phone, threadName);
+                    loginUsers.add(loginUser);
+                } else
+                    return null;
+
+            } catch (SQLException e) {
+                System.out.println("[SQL Error : " + e.getMessage() + "]");
+            } finally {
+                // 사용순서와 반대로 close 함
+                if (rs != null) {
+                    try {
+                        rs.close();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+                pstmtAndConnClose(conn, pstmt);
+            }
+            return null;
+        }
+
+        public int DBInsert(String userid, String password, String age, String phone) {
             Connection conn = null; // DB와 연결하기 위한 객체
             PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
             int result = 0;
@@ -308,9 +426,35 @@ public class ConcurrentServer {
                 pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
 
                 pstmt.setString(1, userid);
-                pstmt.setString(2, userpw);
+                pstmt.setString(2, password);
                 pstmt.setInt(3, Integer.parseInt(age));
                 pstmt.setString(4, phone);
+
+                result = pstmt.executeUpdate(); // SQL 문장을 실행하고 결과를 리턴 (SQL 문장 실행 후, 변경된 row 수 int type 리턴)
+
+            } catch (SQLException e) {
+                System.out.println("[SQL Error : " + e.getMessage() + "]");
+            } finally {
+                // 사용순서와 반대로 close 함
+                pstmtAndConnClose(conn, pstmt);
+            }
+            return result;
+        }
+
+        public int registerLecture(String userid, int lectureId) {
+            Connection conn = null; // DB와 연결하기 위한 객체
+            PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
+            int result = 0;
+
+            try { //Reflection 방식
+                conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
+
+                String sql;
+                sql = "insert into registration(user_id, lecture_id) values(?,?)";
+                pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
+
+                pstmt.setString(1, userid);
+                pstmt.setInt(2, lectureId);
 
                 result = pstmt.executeUpdate(); // SQL 문장을 실행하고 결과를 리턴 (SQL 문장 실행 후, 변경된 row 수 int type 리턴)
 
@@ -366,6 +510,27 @@ public class ConcurrentServer {
             }
         }
 
+        void DBUpdateLectureCnt(int lectureId) {
+            Connection conn = null; // DB와 연결하기 위한 객체
+            PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
+            try { //Reflection 방식
+                conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
+
+                String sql;
+                sql = "update lecture set cnt_participant = cnt_participant+1 where lecture_id =?";
+                pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
+
+                pstmt.setInt(1, lectureId);
+
+                pstmt.executeUpdate(); // SQL 문장을 실행하고 결과를 리턴 (SQL 문장 실행 후, 변경된 row 수 int type 리턴)
+            } catch (SQLException e) {
+                System.out.println("[SQL Error : " + e.getMessage() + "]");
+            } finally {
+                // 사용순서와 반대로 close 함
+                pstmtAndConnClose(conn, pstmt);
+            }
+        }
+
         void DBDelete() {
             Connection conn = null; // DB와 연결하기 위한 객체
             PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
@@ -387,7 +552,239 @@ public class ConcurrentServer {
                 pstmtAndConnClose(conn, pstmt);
             }
         }
+
+        void DBSelectLike(String target, String keyword) {
+            Connection conn = null; // DB와 연결하기 위한 객체
+            PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
+            ResultSet rs = null;
+            try { //Reflection 방식
+                conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
+
+                String sql;
+                sql = "select * from lecture where " + target + " like ?";
+                pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
+                rs = pstmt.executeQuery(sql);
+                pstmt.setString(1, "%" + keyword + "%");
+
+                while (rs.next()) { // ResultSet에 저장된 데이터 얻기 (결과 2개 이상)
+                    int lectureId = rs.getInt(1);
+                    String lectureName = rs.getString(2);
+                    String institution = rs.getString(3);
+                    String manager = rs.getString(4);
+                    int cnt_participant = rs.getInt(5);
+                    int max_participant = rs.getInt(6);
+                    System.out.println(lectureId + "\t" + lectureName + "\t" + institution + "\t" + manager + "\t" + cnt_participant + "\t" + max_participant);
+                }
+
+
+                int r = pstmt.executeUpdate(); // SQL 문장을 실행하고 결과를 리턴 (SQL 문장 실행 후, 변경된 row 수 int type 리턴)
+
+            } catch (SQLException e) {
+                System.out.println("[SQL Error : " + e.getMessage() + "]");
+            } finally {
+                // 사용순서와 반대로 close 함
+                pstmtAndConnClose(conn, pstmt);
+            }
+        }
+
+        boolean checkUserId(String userid) {
+            Connection conn = null; // DB와 연결하기 위한 객체
+            PreparedStatement pstmt = null;
+            ResultSet rs = null;
+
+            try {
+                conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
+
+                String sql;
+                sql = "select * from user where user_id = ?";
+                pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
+                pstmt.setString(1, userid);
+                rs = pstmt.executeQuery();
+
+                if (rs.next())
+                    return true;
+                else
+                    return false;
+
+            } catch (SQLException e) {
+                System.out.println("[SQL Error : " + e.getMessage() + "]");
+            } finally {
+                // 사용순서와 반대로 close 함
+                if (rs != null) {
+                    try {
+                        rs.close();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+                pstmtAndConnClose(conn, pstmt);
+            }
+            return false;
+        }
+
+        boolean checkPassword(String userid, String password) {
+            Connection conn = null; // DB와 연결하기 위한 객체
+            PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
+            ResultSet rs = null;
+            String dbpassword = "";
+
+            try { //Reflection 방식
+                conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
+
+                String sql;
+                sql = "select * from user where user_id = ?";
+                pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
+
+                pstmt.setString(1, userid);
+                rs = pstmt.executeQuery();
+
+                if (rs.next()) {
+                    dbpassword = rs.getString(2);
+                }
+
+            } catch (SQLException e) {
+                System.out.println("[SQL Error : " + e.getMessage() + "]");
+            } finally {
+                // 사용순서와 반대로 close 함
+                if (rs != null) {
+                    try {
+                        rs.close();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+                pstmtAndConnClose(conn, pstmt);
+            }
+
+            if (dbpassword.equals(password))
+                return true;
+            else
+                return false;
+        }
+
+        //검증1 - 신청 인원 제한 검증
+        boolean isNotFull(int lectureId) {
+            Connection conn = null; // DB와 연결하기 위한 객체
+            PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
+            ResultSet rs = null;
+            String dbpassword = "";
+
+            try { //Reflection 방식
+                conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
+
+                String sql;
+                sql = "SELECT * FROM jdbc.lecture  where lecture_id =? and max_participant>cnt_participant";
+                pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
+
+                pstmt.setInt(1, lectureId);
+                rs = pstmt.executeQuery();
+
+                if (rs.next()) {
+                    return true;    //신청인원 여유 있음
+                } else {
+                    return false;   //신청인원 꽉 참
+                }
+
+            } catch (SQLException e) {
+                System.out.println("[SQL Error : " + e.getMessage() + "]");
+            } finally {
+                // 사용순서와 반대로 close 함
+                if (rs != null) {
+                    try {
+                        rs.close();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+                pstmtAndConnClose(conn, pstmt);
+            }
+            return false;
+        }
+
+
+        //검증2 - 프로그램 신청 조건을 만족하는지 검증
+        boolean validationRegister(int lectureId, int age) {
+            Connection conn = null; // DB와 연결하기 위한 객체
+            PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
+            ResultSet rs = null;
+            String dbpassword = "";
+
+            try { //Reflection 방식
+                conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
+
+                String sql;
+                sql = "select * from lecture where lecture_id = ? and min_age <= ?";
+                pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
+
+                pstmt.setInt(1, lectureId);
+                pstmt.setInt(2, age);
+                rs = pstmt.executeQuery();
+
+                if (rs.next()) {
+                    return true;
+                } else {
+                    return false;
+                }
+
+            } catch (SQLException e) {
+                System.out.println("[SQL Error : " + e.getMessage() + "]");
+            } finally {
+                // 사용순서와 반대로 close 함
+                if (rs != null) {
+                    try {
+                        rs.close();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+                pstmtAndConnClose(conn, pstmt);
+            }
+            return false;
+        }
+
+        //검증3 - 이미 등록한 사용자는 아닌지 검증
+        boolean alreadyRegister(int lectureId, String userid) {
+            Connection conn = null; // DB와 연결하기 위한 객체
+            PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
+            ResultSet rs = null;
+            String dbpassword = "";
+
+            try { //Reflection 방식
+                conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
+
+                String sql;
+                sql = "select * from registration where lecture_id =? and user_id = ?";
+                pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
+
+                pstmt.setInt(1, lectureId);
+                pstmt.setString(2, userid);
+                rs = pstmt.executeQuery();
+
+                if (rs.next()) {    
+                    return true;    //이미 등록한 사용자
+                } else {
+                    return false;   //신청이 가능한 사용자
+                }
+
+            } catch (SQLException e) {
+                System.out.println("[SQL Error : " + e.getMessage() + "]");
+            } finally {
+                // 사용순서와 반대로 close 함
+                if (rs != null) {
+                    try {
+                        rs.close();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+                pstmtAndConnClose(conn, pstmt);
+            }
+            return false;
+        }
     }
+
+
+
 
     public static void main(String[] args) {
         startServer();

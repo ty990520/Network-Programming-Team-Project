@@ -3,12 +3,14 @@ public class User {
     String userpw;
     int age;
     String phone;
+    String threadName;
 
-    public User(String userid, String userpw, int age, String phone) {
+    public User(String userid, String userpw, int age, String phone, String threadName) {
         this.userid = userid;
         this.userpw = userpw;
         this.age = age;
         this.phone = phone;
+        this.threadName = threadName;
     }
 
     public String getUserid() {
@@ -41,5 +43,13 @@ public class User {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public String getThreadName() {
+        return threadName;
+    }
+
+    public void setThreadName(String threadName) {
+        this.threadName = threadName;
     }
 }
