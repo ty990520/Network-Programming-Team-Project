@@ -151,7 +151,7 @@ public class ConcurrentServer {
                                         break;
                                     }
                                 }
-                                if(flag==0){   //로그인
+                                if (flag == 0) {   //로그인
                                     pw.println("--------- 로그인 ---------\n사용자 아이디를 입력해주세요.");
                                     String userid = userInput(br);
                                     pw.println("사용자 패스워드를 입력해주세요.");
@@ -206,7 +206,7 @@ public class ConcurrentServer {
                             } else if (buffer.equals("3")) {
 
                                 pw.println("--------- 전체 프로그램 조회 ---------\n"
-                                        + "| 강의 번호\t| 강의명\t\t| 담당 기관\t| 담당 직원\t| 신청 인원\t| 수강 인원\t|\n"
+                                        + "| 강의 번호\t| 강의명\t\t| 담당 기관\t| 담당 직원\t| 수강가능 연령\t| 신청 인원\t| 수강 인원\t|\n"
                                         + dbDriver.DBSelect() + "\n[1] 프로그램 신청하기\n[2] 프로그램 검색하기");
                                 buffer = br.readLine();
                                 if (buffer.equals("1")) {
@@ -217,8 +217,8 @@ public class ConcurrentServer {
                                             loginFlag = 1;
                                             pw.println("신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
                                             int lectureId = Integer.parseInt(br.readLine());
-                                            if(dbDriver.isNotFull(lectureId)){                                              //검증1 : 프로그램 인원 제한 검증
-                                                if(!dbDriver.alreadyRegister(lectureId, loginUser.getUserid())){            //검증2 : 이미 등록한 사용자 검증
+                                            if (dbDriver.isNotFull(lectureId)) {                                              //검증1 : 프로그램 인원 제한 검증
+                                                if (!dbDriver.alreadyRegister(lectureId, loginUser.getUserid())) {            //검증2 : 이미 등록한 사용자 검증
                                                     if (dbDriver.validationRegister(lectureId, loginUser.getAge())) {       //검증3 : 프로그램 신청 조건 만족 여부 검증
                                                         int result = dbDriver.registerLecture(loginUser.getUserid(), lectureId);
                                                         if (result == 1) {
@@ -231,10 +231,10 @@ public class ConcurrentServer {
                                                     } else {
                                                         pw.println("[FAILURE] 해당 프로그램의 신청 조건이 만족되지 않았습니다.");
                                                     }
-                                                }else{
+                                                } else {
                                                     pw.println("[FAILURE] 이미 신청한 프로그램입니다.");
                                                 }
-                                            }else{
+                                            } else {
                                                 pw.println("[FAILURE] 프로그램 수강 가능 인원이 다 찼습니다.");
                                             }
                                             break;
@@ -312,9 +312,9 @@ public class ConcurrentServer {
 
     public static class DBDriver {
         private final static String URL = "jdbc:mysql://localhost:3306/jdbc?serverTimezone=Asia/Seoul&useSSL=false";
-        //                private final static String USER = "newuser";
         private final static String USER = "root";
-        private final static String PASSWORD = "sun009538!@!";
+//        private final static String PASSWORD = "sun009538!@!";
+        private final static String PASSWORD = "1234";
 
         public DBDriver() {
         }
@@ -337,11 +337,13 @@ public class ConcurrentServer {
                     String lectureName = rs.getString("lecture_name");
                     String institution = rs.getString("institution");
                     String manager = rs.getString("manager");
+                    int minAge = rs.getInt("min_age");
                     int cntParticipant = rs.getInt("cnt_participant");
                     int maxParticipant = rs.getInt("max_participant");
 
                     result += "| " + lectureId + "\t\t| " + lectureName + "\t| " + institution
-                            + "\t| " + manager + "\t| " + cntParticipant + "\t\t| " + maxParticipant + "\t\t|\n";
+                            + "\t| " + manager + "\t| " + minAge + "\t\t| "
+                            + cntParticipant + "\t\t| " + maxParticipant + "\t\t|\n";
                 }
 
 //                 if(rs.next()) { // ResultSet에 저장된 데이터 얻기 (결과 1개)
@@ -578,9 +580,11 @@ public class ConcurrentServer {
                     String lectureName = rs.getString(2);
                     String institution = rs.getString(3);
                     String manager = rs.getString(4);
-                    int cnt_participant = rs.getInt(5);
-                    int max_participant = rs.getInt(6);
-                    System.out.println(lectureId + "\t" + lectureName + "\t" + institution + "\t" + manager + "\t" + cnt_participant + "\t" + max_participant);
+                    int minAge = rs.getInt(5);
+                    int cntParticipant = rs.getInt(6);
+                    int maxParticipant = rs.getInt(7);
+                    System.out.println(lectureId + "\t" + lectureName + "\t" + institution + "\t" + manager + "\t"
+                            + minAge + "\t" + cntParticipant + "\t" + maxParticipant);
                 }
 
 
@@ -674,7 +678,6 @@ public class ConcurrentServer {
             Connection conn = null; // DB와 연결하기 위한 객체
             PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
             ResultSet rs = null;
-            String dbpassword = "";
 
             try { //Reflection 방식
                 conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
@@ -754,7 +757,6 @@ public class ConcurrentServer {
             Connection conn = null; // DB와 연결하기 위한 객체
             PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
             ResultSet rs = null;
-            String dbpassword = "";
 
             try { //Reflection 방식
                 conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
@@ -767,7 +769,7 @@ public class ConcurrentServer {
                 pstmt.setString(2, userid);
                 rs = pstmt.executeQuery();
 
-                if (rs.next()) {    
+                if (rs.next()) {
                     return true;    //이미 등록한 사용자
                 } else {
                     return false;   //신청이 가능한 사용자
@@ -789,8 +791,6 @@ public class ConcurrentServer {
             return false;
         }
     }
-
-
 
 
     public static void main(String[] args) {
