@@ -32,8 +32,9 @@ int main(int argc, char* argv[]) {
 	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
 		ErrorHandling("WSAstartup() error");
 	hSocket = socket(PF_INET, SOCK_STREAM, 0);
-	if (hSocket == INVALID_SOCKET)
-		ErrorHandling("socket() error");
+	if (hSocket == INVALID_SOCKET){
+		ErrorHandling("socket() error : %d",WSAGetLastError());
+	}
 
 	memset(&servAdr, 0, sizeof(servAdr));
 	servAdr.sin_family = AF_INET;
