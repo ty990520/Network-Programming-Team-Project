@@ -101,6 +101,7 @@ void printMenu() {
 	puts("======================");
 	puts("");
 }
+
 void ErrorHandling(char* message) {
 	fputs(message, stderr);
 	fputc('\n', stderr);
