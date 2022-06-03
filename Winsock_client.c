@@ -21,8 +21,6 @@ int main(int argc, char* argv[]) {
 	char message[BUF_SIZE];
 	int strLen;
 	SOCKADDR_IN servAdr;
-	
-
 
 	if (argc != 3) {
 		printf("Usage : %s [IP address] [Port]\n", argv[0]);
@@ -31,7 +29,9 @@ int main(int argc, char* argv[]) {
 
 	if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
 		ErrorHandling("WSAstartup() error");
+
 	hSocket = socket(PF_INET, SOCK_STREAM, 0);
+
 	if (hSocket == INVALID_SOCKET){
 		ErrorHandling("socket() error : %d",WSAGetLastError());
 	}
@@ -52,17 +52,13 @@ int main(int argc, char* argv[]) {
 		fputs(">> ", stdout);
 		fgets(message, BUF_SIZE, stdin);
 		
-
 		if (!strcmp(message, "0\n"))
 			break;
-
-		
 
 		send(hSocket, message, strlen(message), 0);
 		strLen = recv(hSocket, message, BUF_SIZE - 1, 0);
 		message[strLen] = 0;
-		
-		
+				
 		printf(message);
 		char subtext[6];
 		strncpy(subtext, &message[1], 5);
