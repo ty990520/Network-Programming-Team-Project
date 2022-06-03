@@ -174,35 +174,7 @@ public class ConcurrentServer {
 
                             } else if (buffer.equals("2")) {
                                 pw.println("--------- 회원가입 ---------\n등록할 사용자 아이디를 입력해주세요.");
-                                boolean check = true;
-                                String userid = "";
-
-                                while (check) {
-                                    userid = userInput(br);
-                                    if (userid == null) break;
-
-                                    check = dbDriver.checkUserId(userid);
-
-                                    if (check)
-                                        pw.println("[FAILURE] 중복된 아이디가 있습니다. 다시 입력해주세요.");
-                                    else
-                                        break;
-                                }
-                                pw.println("등록할 사용자 패스워드를 입력해주세요.");
-                                String password = userInput(br);
-                                if (password == null) break;
-                                pw.println("등록할 사용자의 나이를 입력해주세요.");
-                                String age = userInput(br);
-                                if (age == null) break;
-                                pw.println("등록할 사용자 전화번호를 입력해주세요.");
-                                String phone = userInput(br);
-                                if (phone == null) break;
-
-                                int result = dbDriver.DBInsert(userid, password, age, phone);
-                                if (result != 0) {
-                                    pw.println("[SUCCESS] 회원가입을 완료하였습니다!");
-                                    System.out.println(userid + "님 회원가입 완료");
-                                } else pw.println("[FAILURE] 회원가입에 실패하였습니다. 다시 시도해주세요.");
+                                if (signup(br, pw, dbDriver)) break;
                             } else if (buffer.equals("3")) {
                                 pw.println("--------- 전체 프로그램 조회 ---------\n"
                                         + "| 강의 번호\t| 강의명\t\t| 담당 기관\t| 담당 직원\t| 수강가능 연령\t| 신청 인원\t| 수강 인원\t|\n"
@@ -216,25 +188,7 @@ public class ConcurrentServer {
                                             loginFlag = 1;
                                             pw.println("신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
                                             int lectureId = Integer.parseInt(br.readLine());
-                                            if (dbDriver.isNotFull(lectureId)) {                                              //검증1 : 프로그램 인원 제한 검증
-                                                if (!dbDriver.alreadyRegister(lectureId, loginUser.getUserid())) {            //검증2 : 이미 등록한 사용자 검증
-                                                    if (dbDriver.validationRegister(lectureId, loginUser.getAge())) {       //검증3 : 프로그램 신청 조건 만족 여부 검증
-                                                        int result = dbDriver.registerLecture(loginUser.getUserid(), lectureId);
-                                                        if (result == 1) {
-                                                            dbDriver.DBUpdateLectureCnt(1, lectureId);
-                                                            pw.println("[SUCCESS] 프로그램이 신청되었습니다.");
-                                                        } else {
-                                                            pw.println("[FAILURE] 프로그램 신청을 실패하였습니다.");
-                                                        }
-                                                    } else {
-                                                        pw.println("[FAILURE] 해당 프로그램의 신청 조건이 만족되지 않았습니다.");
-                                                    }
-                                                } else {
-                                                    pw.println("[FAILURE] 이미 신청한 프로그램입니다.");
-                                                }
-                                            } else {
-                                                pw.println("[FAILURE] 프로그램 수강 가능 인원이 다 찼습니다.");
-                                            }
+                                            register(pw, dbDriver, loginUser, lectureId);
                                             break;
                                         }
                                     }
@@ -264,18 +218,13 @@ public class ConcurrentServer {
                                     pw.println("취소를 원하는 프로그램의 강의 번호를 입력해주세요.");
                                     int lectureId = Integer.parseInt(br.readLine());
 
-                                    if (dbDriver.alreadyRegister(lectureId, userid)) {
-                                        dbDriver.DBUpdateLectureCnt(2, lectureId);
-                                        dbDriver.DBDelete(lectureId, userid);
-                                        pw.println("[SUCCESS] 프로그램이 취소되었습니다.");
-                                    } else
-                                        pw.println("[FAILURE] 신청하지 않은 프로그램입니다.");
+                                    cancel(pw, dbDriver, userid, lectureId);
                                 }
                                 else if (buffer.equals("2")) {
                                     // 나가기
                                 }
                             }
-                            
+
                             // 모든 클라이언트에게 데이터 보냄
 //                            for (Client client : connections) {
 //                                client.send(data);
@@ -289,6 +238,70 @@ public class ConcurrentServer {
                         } catch (IOException e2) {
                         }
                     }
+                }
+
+                private synchronized void register(PrintWriter pw, DBDriver dbDriver, User loginUser, int lectureId) {
+                    if (dbDriver.isNotFull(lectureId)) {                                              //검증1 : 프로그램 인원 제한 검증
+                        if (!dbDriver.alreadyRegister(lectureId, loginUser.getUserid())) {            //검증2 : 이미 등록한 사용자 검증
+                            if (dbDriver.validationRegister(lectureId, loginUser.getAge())) {       //검증3 : 프로그램 신청 조건 만족 여부 검증
+                                int result = dbDriver.registerLecture(loginUser.getUserid(), lectureId);
+                                if (result == 1) {
+                                    dbDriver.DBUpdateLectureCnt(1, lectureId);
+                                    pw.println("[SUCCESS] 프로그램이 신청되었습니다.");
+                                } else {
+                                    pw.println("[FAILURE] 프로그램 신청을 실패하였습니다.");
+                                }
+                            } else {
+                                pw.println("[FAILURE] 해당 프로그램의 신청 조건이 만족되지 않았습니다.");
+                            }
+                        } else {
+                            pw.println("[FAILURE] 이미 신청한 프로그램입니다.");
+                        }
+                    } else {
+                        pw.println("[FAILURE] 프로그램 수강 가능 인원이 다 찼습니다.");
+                    }
+                }
+
+                private synchronized void cancel(PrintWriter pw, DBDriver dbDriver, String userid, int lectureId) {
+                    if (dbDriver.alreadyRegister(lectureId, userid)) {
+                        dbDriver.DBUpdateLectureCnt(2, lectureId);
+                        dbDriver.DBDelete(lectureId, userid);
+                        pw.println("[SUCCESS] 프로그램이 취소되었습니다.");
+                    } else
+                        pw.println("[FAILURE] 신청하지 않은 프로그램입니다.");
+                }
+
+                private synchronized boolean signup(BufferedReader br, PrintWriter pw, DBDriver dbDriver) throws IOException {
+                    boolean check = true;
+                    String userid = "";
+
+                    while (check) {
+                        userid = userInput(br);
+                        if (userid == null) break;
+
+                        check = dbDriver.checkUserId(userid);
+
+                        if (check)
+                            pw.println("[FAILURE] 중복된 아이디가 있습니다. 다시 입력해주세요.");
+                        else
+                            break;
+                    }
+                    pw.println("등록할 사용자 패스워드를 입력해주세요.");
+                    String password = userInput(br);
+                    if (password == null) return true;
+                    pw.println("등록할 사용자의 나이를 입력해주세요.");
+                    String age = userInput(br);
+                    if (age == null) return true;
+                    pw.println("등록할 사용자 전화번호를 입력해주세요.");
+                    String phone = userInput(br);
+                    if (phone == null) return true;
+
+                    int result = dbDriver.DBInsert(userid, password, age, phone);
+                    if (result != 0) {
+                        pw.println("[SUCCESS] 회원가입을 완료하였습니다!");
+                        System.out.println(userid + "님 회원가입 완료");
+                    } else pw.println("[FAILURE] 회원가입에 실패하였습니다. 다시 시도해주세요.");
+                    return false;
                 }
 
                 private String userInput(BufferedReader br) throws IOException {
@@ -334,8 +347,8 @@ public class ConcurrentServer {
     public static class DBDriver {
         private final static String URL = "jdbc:mysql://localhost:3306/jdbc?serverTimezone=Asia/Seoul&useSSL=false";
         private final static String USER = "root";
-        //        private final static String PASSWORD = "sun009538!@!";
-        private final static String PASSWORD = "1234";
+                private final static String PASSWORD = "sun009538!@!";
+//        private final static String PASSWORD = "1234";
 
         public DBDriver() {
         }
@@ -880,4 +893,3 @@ public class ConcurrentServer {
         startServer();
     }
 }
-
