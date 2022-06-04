@@ -10,12 +10,10 @@ import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 // concurrent server
-// multi-thread / thread poot
-// shared memory / Mutual Exclusion(lock)
+// multi-thread / thread pool
+// Mutual Exclusion(lock)
 
 public class ConcurrentServer {
     public static final int PORT = 9309;
@@ -27,15 +25,43 @@ public class ConcurrentServer {
 
 
     static void startServer() { // 서버 시작 시 호출
-        final SharedData mySharedData = new SharedData(); // shared resource
-        final Lock lock = new ReentrantLock(); // lock instance
-
         // 스레드풀 생성
         executorService = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors()
         );
 
         // 서버 소켓 생성 및 바인딩
+        if (createServerSocketAndBind()) return;
+
+        // 수락 작업 생성
+        Runnable runnable = () -> {
+            while (true) {
+                if (acceptClient()) break;
+            }
+        };
+        // 스레드풀에서 처리
+        executorService.submit(runnable);
+    }
+
+    private static boolean acceptClient() {
+        try {
+            // 연결 수락
+            Socket socket = serverSocket.accept();
+            System.out.println("[연결 수락: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
+            // 클라이언트 접속 요청 시 객체 하나씩 생성해서 저장
+            Client client = new Client(socket);
+            connections.add(client);
+            System.out.println("[연결 개수: " + connections.size() + "]");
+        } catch (Exception e) {
+            if (!serverSocket.isClosed()) {
+                stopServer();
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean createServerSocketAndBind() {
         try {
             serverSocket = new ServerSocket();
 
@@ -49,67 +75,49 @@ public class ConcurrentServer {
             if (!serverSocket.isClosed()) {
                 stopServer();
             }
-            return;
+            return true;
         }
-
-        // 수락 작업 생성
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-//                System.out.println("[서버 시작]");
-                while (true) {
-                    try {
-                        // 연결 수락
-                        Socket socket = serverSocket.accept();
-                        System.out.println("[연결 수락: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
-                        // 클라이언트 접속 요청 시 객체 하나씩 생성해서 저장
-                        Client client = new Client(socket, mySharedData, lock);
-                        connections.add(client);
-                        System.out.println("[연결 개수: " + connections.size() + "]");
-                    } catch (Exception e) {
-                        if (!serverSocket.isClosed()) {
-                            stopServer();
-                        }
-                        break;
-                    }
-                }
-            }
-        };
-        // 스레드풀에서 처리
-        executorService.submit(runnable);
+        return false;
     }
 
     static void stopServer() { // 서버 종료 시 호출
         try {
             // 모든 소켓 닫기
-            Iterator<Client> iterator = connections.iterator();
-            while (iterator.hasNext()) {
-                Client client = iterator.next();
-                client.socket.close();
-                iterator.remove();
-            }
+            closeServiceSockets();
             // 서버 소켓 닫기
-            if (serverSocket != null && !serverSocket.isClosed()) {
-                serverSocket.close();
-            }
+            closeListeningSocket();
             // 스레드풀 종료
-            if (executorService != null && !executorService.isShutdown()) {
-                executorService.shutdown();
-            }
-            System.out.println("[서버 멈춤]");
+            closeThreadPool();
         } catch (Exception e) {
+        }
+    }
+
+    private static void closeThreadPool() {
+        if (executorService != null && !executorService.isShutdown()) {
+            executorService.shutdown();
+        }
+    }
+
+    private static void closeListeningSocket() throws IOException {
+        if (serverSocket != null && !serverSocket.isClosed()) {
+            serverSocket.close();
+        }
+    }
+
+    private static void closeServiceSockets() throws IOException {
+        Iterator<Client> iterator = connections.iterator();
+        while (iterator.hasNext()) {
+            Client client = iterator.next();
+            client.socket.close();
+            iterator.remove();
         }
     }
 
     static class Client {
         Socket socket;
-        private final SharedData mySharedData;
-        private final Lock lock;
 
-        Client(Socket socket, SharedData mySharedData, Lock lock) {
+        Client(Socket socket) {
             this.socket = socket;
-            this.mySharedData = mySharedData;
-            this.lock = lock;
             receive();
         }
 
@@ -120,12 +128,8 @@ public class ConcurrentServer {
                 public void run() {
                     try {
                         while (true) {
-                            InputStream is = socket.getInputStream();
-                            InputStreamReader isr = new InputStreamReader(is, "euc-kr");
-                            BufferedReader br = new BufferedReader(isr);
-                            OutputStream os = socket.getOutputStream();
-                            OutputStreamWriter osw = new OutputStreamWriter(os, "euc-kr");
-                            PrintWriter pw = new PrintWriter(osw, true);
+                            BufferedReader br = inputBuffer();
+                            PrintWriter pw = outputBuffer();
                             String buffer = null;
 
                             buffer = br.readLine();
@@ -238,6 +242,20 @@ public class ConcurrentServer {
                         } catch (IOException e2) {
                         }
                     }
+                }
+
+                private PrintWriter outputBuffer() throws IOException {
+                    OutputStream os = socket.getOutputStream();
+                    OutputStreamWriter osw = new OutputStreamWriter(os, "euc-kr");
+                    PrintWriter pw = new PrintWriter(osw, true);
+                    return pw;
+                }
+
+                private BufferedReader inputBuffer() throws IOException {
+                    InputStream is = socket.getInputStream();
+                    InputStreamReader isr = new InputStreamReader(is, "euc-kr");
+                    BufferedReader br = new BufferedReader(isr);
+                    return br;
                 }
 
                 private synchronized void register(PrintWriter pw, DBDriver dbDriver, User loginUser, int lectureId) {
