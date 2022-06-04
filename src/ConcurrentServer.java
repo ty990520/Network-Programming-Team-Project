@@ -116,9 +116,9 @@ public class ConcurrentServer {
 
         Client(Socket socket) {
             this.socket = socket;
-            receive();
+            service();
         }
-        void receive() {
+        void service() {
             // 받기 작업 생성
             Runnable runnable = new Runnable() {
                 @Override
@@ -203,15 +203,12 @@ public class ConcurrentServer {
                                         continue;
                                     }
                                     continue;
-                                    continue;
                                 }
 								default -> {  // 이상한 번호를 눌렀을 경우
                                     pw.println("[FAILURE] 잘못된 입력입니다.");
                                     continue;
                                 }
-                                continue;
                             }
-
                         }
                     } catch (Exception e) {
                         try {
@@ -445,7 +442,6 @@ public class ConcurrentServer {
 
         public String DBSelect() {
             Connection conn = null;
-            PreparedStatement pstmt = null;
             Statement stmt = null;
             ResultSet rs = null;
             String result = "";
@@ -897,7 +893,6 @@ public class ConcurrentServer {
             Connection conn = null; // DB와 연결하기 위한 객체
             PreparedStatement pstmt = null; // SQL 문을 데이터베이스에 보내기위한 객체
             ResultSet rs = null;
-            String dbpassword = "";
 
             try { //Reflection 방식
                 conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
