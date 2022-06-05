@@ -198,7 +198,7 @@ public class ConcurrentServer {
                                         }
                                     }
 
-                                    if(checkLoginUserRegisterList(pw, loginFlag)) {
+                                    if (checkLoginUserRegisterList(pw, loginFlag)) {
                                         selectMyLecture(pw, dbDriver, userid);
                                         buffer = br.readLine();
 
@@ -240,19 +240,22 @@ public class ConcurrentServer {
 
                 private void cancelUserLecture(BufferedReader br, PrintWriter pw, DBDriver dbDriver, String userid) throws IOException {
                     pw.println("취소를 원하는 프로그램의 강의 번호를 입력해주세요.");
-                    int lectureId = Integer.parseInt(br.readLine());
-                    cancel(pw, dbDriver, userid, lectureId);
+                    boolean check = true;
+                    while (check) {
+                        int lectureId = Integer.parseInt(br.readLine());
+                        check = cancel(pw, dbDriver, userid, lectureId);
+                    }
                 }
 
                 private void selectMyLecture(PrintWriter pw, DBDriver dbDriver, String userid) {
                     pw.println("--------- 수강 신청 조회 ---------\n"
-                            + "| 강의 번호\t| 강의명\t\t| 담당 기관\t| 담당 직원\t| 수강가능 연령\t| 신청 인원\t| 수강 인원\t|\n"
+                            + "| 강의 번호\t| 강의명\t\t| 담당 기관\t\t| 담당 직원\t| 수강가능 연령\t| 신청 인원\t| 수강 인원\t|\n"
                             + dbDriver.DBSelectByUserId(userid) + "\n[1] 수강 신청 취소\n[2] 나가기");
                 }
 
                 private void selectAllLecture(PrintWriter pw, DBDriver dbDriver) {
                     pw.println("--------- 전체 프로그램 조회 ---------\n"
-                            + "| 강의 번호\t| 강의명\t\t| 담당 기관\t| 담당 직원\t| 수강가능 연령\t| 신청 인원\t| 수강 인원\t|\n"
+                            + "| 강의 번호\t| 강의명\t\t| 담당 기관\t\t| 담당 직원\t| 수강가능 연령\t| 신청 인원\t| 수강 인원\t|\n"
                             + dbDriver.DBSelect() + "\n[1] 프로그램 신청하기\n[2] 나가기");
                 }
 
@@ -260,9 +263,12 @@ public class ConcurrentServer {
                     if (loginFlag == 0) { //비로그인 사용자
                         pw.println("[FAILURE] 프로그램 신청을 위해 먼저 로그인해주세요.\n" + printMenu(loginFlag));
                     } else {
+                        boolean check = true;
                         pw.println("신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
-                        int lectureId = Integer.parseInt(br.readLine());
-                        register(pw, dbDriver, user, lectureId);
+                        while (check) {
+                            int lectureId = Integer.parseInt(br.readLine());
+                            check = register(pw, dbDriver, user, lectureId);
+                        }
                     }
                 }
 
@@ -368,7 +374,7 @@ public class ConcurrentServer {
                     return br;
                 }
 
-                private synchronized void register(PrintWriter pw, DBDriver dbDriver, User loginUser, int lectureId) {
+                private synchronized boolean register(PrintWriter pw, DBDriver dbDriver, User loginUser, int lectureId) {
                     if (dbDriver.isNotFull(lectureId)) {                                              //검증1 : 프로그램 인원 제한 검증
                         if (!dbDriver.alreadyRegister(lectureId, loginUser.getUserid())) {            //검증2 : 이미 등록한 사용자 검증
                             if (dbDriver.validationRegister(lectureId, loginUser.getAge())) {       //검증3 : 프로그램 신청 조건 만족 여부 검증
@@ -376,27 +382,35 @@ public class ConcurrentServer {
                                 if (result == 1) {
                                     dbDriver.DBUpdateLectureCnt(1, lectureId);
                                     pw.println("[SUCCESS] 프로그램이 신청되었습니다.");
+                                    return false;
                                 } else {
-                                    pw.println("[FAILURE] 프로그램 신청을 실패하였습니다.");
+                                    pw.println("[FAILURE] 프로그램 신청을 실패하였습니다.\n신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
+                                    return true;
                                 }
                             } else {
-                                pw.println("[FAILURE] 해당 프로그램의 신청 조건이 만족되지 않았습니다.\n" + printMenu(1));
+                                pw.println("[FAILURE] 해당 프로그램의 신청 조건이 만족되지 않았습니다.\n신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
+                                return true;
                             }
                         } else {
-                            pw.println("[FAILURE] 이미 신청한 프로그램입니다.\n" + printMenu(1));
+                            pw.println("[FAILURE] 이미 신청한 프로그램입니다.\n신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
+                            return true;
                         }
                     } else {
-                        pw.println("[FAILURE] 프로그램 수강 가능 인원이 다 찼습니다.");
+                        pw.println("[FAILURE] 프로그램 수강 가능 인원이 다 찼습니다.\n신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
+                        return true;
                     }
                 }
 
-                private synchronized void cancel(PrintWriter pw, DBDriver dbDriver, String userid, int lectureId) {
+                private synchronized boolean cancel(PrintWriter pw, DBDriver dbDriver, String userid, int lectureId) {
                     if (dbDriver.alreadyRegister(lectureId, userid)) {
                         dbDriver.DBUpdateLectureCnt(2, lectureId);
                         dbDriver.DBDelete(lectureId, userid);
                         pw.println("[SUCCESS] 프로그램이 취소되었습니다.");
-                    } else
-                        pw.println("[FAILURE] 신청하지 않은 프로그램입니다." + printMenu(1));
+                        return false;
+                    } else {
+                        pw.println("[FAILURE] 신청하지 않은 프로그램입니다.\n취소를 원하는 프로그램의 강의 번호를 입력해주세요.");
+                        return true;
+                    }
                 }
 
 
@@ -468,7 +482,6 @@ public class ConcurrentServer {
         private final static String URL = "jdbc:mysql://localhost:3306/jdbc?serverTimezone=Asia/Seoul&useSSL=false";
         private final static String USER = "root";
         private final static String PASSWORD = "sun009538!@!";
-
 //        private final static String PASSWORD = "1234";
 
         public String DBSelect() {
