@@ -118,6 +118,7 @@ public class ConcurrentServer {
             this.socket = socket;
             receive();
         }
+
         void receive() {
             // 받기 작업 생성
             Runnable runnable = new Runnable() {
@@ -125,8 +126,8 @@ public class ConcurrentServer {
                 public void run() {
                     try {
                         while (true) {
-                            BufferedReader br = inputBuffer();
-                            PrintWriter pw = outputBuffer();
+                            BufferedReader br = inputBuffer();  //recv()의 기능을 포함
+                            PrintWriter pw = outputBuffer();    //send()의 기능을 포함
                             String buffer = null;
 
                             buffer = br.readLine();
@@ -148,7 +149,9 @@ public class ConcurrentServer {
                                     //로그아웃 요청인 경우
                                     flag = isLogout(pw, flag);
                                     //로그인 요청인 경우
-                                    isLogin(br, pw, dbDriver, flag);
+                                    if (flag == 0) {   //로그인
+                                        isLogin(br, pw, dbDriver);
+                                    }
                                     break;
                                 }
                                 case "2" -> {       //[2] 회원가입
@@ -165,7 +168,7 @@ public class ConcurrentServer {
                                             break;
                                         }
                                     }
-                                    
+
                                     //전체 프로그램 조회
                                     selectAllLecture(pw, dbDriver);
                                     buffer = br.readLine();
@@ -292,28 +295,28 @@ public class ConcurrentServer {
                     return userid;
                 }
 
-                private void isLogin(BufferedReader br, PrintWriter pw, DBDriver dbDriver, int flag) throws IOException {
-                    if (flag == 0) {   //로그인
-                        pw.println("--------- 로그인 ---------\n사용자 아이디를 입력해주세요.");
-                        String userid = userInput(br);
-                        pw.println("사용자 패스워드를 입력해주세요.");
-                        String password = userInput(br);
-                        boolean login = false;
+                private void isLogin(BufferedReader br, PrintWriter pw, DBDriver dbDriver) throws IOException {
 
-                        login = dbDriver.checkPassword(userid, password);
-                        if (login) {
-                            pw.println("[LOGIN] 로그인을 완료하였습니다!");    //클라이언트 코드에서 flag로 로그아웃 제어
-                            dbDriver.DBSelectFindUser(userid, Thread.currentThread().getName());
-                            System.out.println("|\t아이디\t|\t비밀번호\t|\t나이\t|\t전화번호\t|\t스레드명\t|");
-                            for (User loginUser : loginUsers) {
-                                System.out.println("|\t" + loginUser.getUserid() + "\t|\t" + loginUser.getUserpw() +
-                                        "\t|\t" + loginUser.getAge() + "\t|\t" + loginUser.getPhone() +
-                                        "\t|\t" + loginUser.getThreadName() + "\t|");
-                            }
-                        } else {
-                            pw.println("[FAILURE] 로그인에 실패하였습니다. 다시 시도해주세요.");
+                    pw.println("--------- 로그인 ---------\n사용자 아이디를 입력해주세요.");
+                    String userid = userInput(br);
+                    pw.println("사용자 패스워드를 입력해주세요.");
+                    String password = userInput(br);
+                    boolean login = false;
+
+                    login = dbDriver.checkPassword(userid, password);
+                    if (login) {
+                        pw.println("[LOGIN] 로그인을 완료하였습니다!");    //클라이언트 코드에서 flag로 로그아웃 제어
+                        dbDriver.DBSelectFindUser(userid, Thread.currentThread().getName());
+                        System.out.println("|\t아이디\t|\t비밀번호\t|\t나이\t|\t전화번호\t|\t스레드명\t|");
+                        for (User loginUser : loginUsers) {
+                            System.out.println("|\t" + loginUser.getUserid() + "\t|\t" + loginUser.getUserpw() +
+                                    "\t|\t" + loginUser.getAge() + "\t|\t" + loginUser.getPhone() +
+                                    "\t|\t" + loginUser.getThreadName() + "\t|");
                         }
+                    } else {
+                        pw.println("[FAILURE] 로그인에 실패하였습니다. 다시 시도해주세요.");
                     }
+
                 }
 
                 private int isLogout(PrintWriter pw, int flag) {
@@ -387,6 +390,7 @@ public class ConcurrentServer {
             // 스레드풀에서 처리
             executorService.submit(runnable);
         }
+
         void send(String data) {
             // 보내기 작업 생성
             Runnable runnable = new Runnable() {
@@ -970,6 +974,7 @@ public class ConcurrentServer {
             }
             return false;
         }
+
     }
 
     public static void main(String[] args) {
