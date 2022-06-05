@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <locale.h>
 
 #define BUF_SIZE 1024
 int loginFlag = 0;
@@ -11,6 +12,7 @@ void error_handling(char* message);
 void printMenu();
 
 int main(int argc, char* argv[]) {
+    setlocale(LC_ALL, "korean");
     int sock;
     char message[BUF_SIZE];
     int str_len = 0;
