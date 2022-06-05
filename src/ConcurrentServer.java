@@ -126,6 +126,7 @@ public class ConcurrentServer {
                 public void run() {
                     try {
                         while (true) {
+                            String threadName = Thread.currentThread().getName();
                             BufferedReader br = inputBuffer();
                             PrintWriter pw = outputBuffer();
                             String buffer = null;
@@ -133,6 +134,11 @@ public class ConcurrentServer {
                             buffer = br.readLine();
 
                             if (buffer == null) {
+                                for (User loginUser : loginUsers) {
+                                    if (loginUser.getThreadName().equals(threadName)) { //로그인 사용자
+                                        loginUsers.remove(loginUser);
+                                    }
+                                }
                                 System.out.println("[server] closed by client");
                                 RUN_THREAD--;
                                 break;
@@ -217,6 +223,12 @@ public class ConcurrentServer {
                         }
                     } catch (Exception e) {
                         try {
+                            for (User loginUser : loginUsers) {
+                                if (loginUser.getThreadName().equals(Thread.currentThread().getName())) { //로그인 사용자
+                                    loginUsers.remove(loginUser);
+                                }
+                            }
+
                             connections.remove(Client.this);
                             System.out.println("[클라이언트 통신 안됨: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
                             socket.close();
@@ -455,7 +467,9 @@ public class ConcurrentServer {
     public static class DBDriver {
         private final static String URL = "jdbc:mysql://localhost:3306/jdbc?serverTimezone=Asia/Seoul&useSSL=false";
         private final static String USER = "root";
-        private final static String PASSWORD = "1234";
+        private final static String PASSWORD = "sun009538!@!";
+
+//        private final static String PASSWORD = "1234";
 
         public String DBSelect() {
             Connection conn = null;
@@ -591,6 +605,7 @@ public class ConcurrentServer {
                     String phone = rs.getString("user_phone");
                     User loginUser = new User(userid, userpw, age, phone, threadName);
                     loginUsers.add(loginUser);
+                    return loginUser;
                 } else
                     return null;
 
