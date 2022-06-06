@@ -59,8 +59,8 @@ public class ConcurrentServer {
             }
 
             connections.add(client);
-            System.out.println("[연결 개수: " + connections.size() + "]");
-            System.out.println("[실행 스레드 : " + RUN_THREAD + "]");
+//            System.out.println("[연결 개수: " + connections.size() + "]");
+            System.out.println("[연결 개수: " + RUN_THREAD + "]");
 
         } catch (Exception e) {
             if (!serverSocket.isClosed()) {
@@ -90,6 +90,7 @@ public class ConcurrentServer {
     }
 
     static void stopServer() { // 서버 종료 시 호출
+
         try {
             // 모든 소켓 닫기
             Iterator<Client> iterator = connections.iterator();
@@ -106,7 +107,8 @@ public class ConcurrentServer {
             if (executorService != null && !executorService.isShutdown()) {
                 executorService.shutdown();
             }
-            System.out.println("[서버 멈춤]");
+            System.out.println("[서버 종료]");
+
         } catch (Exception e) {
         }
     }
@@ -120,7 +122,6 @@ public class ConcurrentServer {
         }
 
         void service() {
-            // 받기 작업 생성
             Runnable runnable = new Runnable() {
                 @Override
                 public void run() {
@@ -137,15 +138,17 @@ public class ConcurrentServer {
                                 for (User loginUser : loginUsers) {
                                     if (loginUser.getThreadName().equals(threadName)) { //로그인 사용자
                                         loginUsers.remove(loginUser);
+                                        connections.remove(Client.this);
                                     }
                                 }
-                                System.out.println("[server] closed by client");
+                                System.out.println("[연결 종료: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
                                 RUN_THREAD--;
+
                                 break;
                             }
 
                             System.out.println("[요청 처리: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
-                            System.out.println("[server] recieved : " + buffer);
+                            System.out.println("[클라이언트 입력: " + buffer + "]");
 
                             DBDriver dbDriver = new DBDriver();
 
@@ -230,8 +233,8 @@ public class ConcurrentServer {
                             }
 
                             connections.remove(Client.this);
-                            System.out.println("[클라이언트 통신 안됨: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
                             socket.close();
+                            System.out.println("[클라이언트 통신 안됨 : " + socket.getRemoteSocketAddress() + " : " + Thread.currentThread().getName() + "]");
                             RUN_THREAD--;
                         } catch (IOException e2) {
                         }
@@ -333,7 +336,7 @@ public class ConcurrentServer {
                             if (login) {
                                 pw.println("[LOGIN] 로그인을 완료하였습니다!");    //클라이언트 코드에서 flag로 로그아웃 제어
                                 dbDriver.DBSelectFindUser(userid, Thread.currentThread().getName());
-                                System.out.println("|\t아이디\t|\t비밀번호\t|\t나이\t|\t전화번호\t\t|\t스레드명\t\t|");
+                                System.out.println("|\t아이디\t|\t비밀번호\t|\t나이\t|\t전화번호\t\t\t|\t스레드명\t\t\t|");
                                 for (User loginUser : loginUsers) {
                                     System.out.println("|\t" + loginUser.getUserid() + "\t|\t" + loginUser.getUserpw() +
                                             "\t|\t" + loginUser.getAge() + "\t|\t" + loginUser.getPhone() +
@@ -441,7 +444,7 @@ public class ConcurrentServer {
                         outputStream.flush();
                     } catch (Exception e) {
                         try {
-                            System.out.println("[클라이언트 통신 안됨: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
+                            System.out.println("[클라이언트 통신 안됨 : " + socket.getRemoteSocketAddress() + " : " + Thread.currentThread().getName() + "]");
                             connections.remove(Client.this);
                             socket.close();
                             RUN_THREAD--;
@@ -481,8 +484,8 @@ public class ConcurrentServer {
     public static class DBDriver {
         private final static String URL = "jdbc:mysql://localhost:3306/jdbc?serverTimezone=Asia/Seoul&useSSL=false";
         private final static String USER = "root";
-        private final static String PASSWORD = "sun009538!@!";
-//        private final static String PASSWORD = "1234";
+        //        private final static String PASSWORD = "sun009538!@!";
+        private final static String PASSWORD = "1234";
 
         public String DBSelect() {
             Connection conn = null;
