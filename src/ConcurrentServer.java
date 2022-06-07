@@ -162,14 +162,17 @@ public class ConcurrentServer {
                                     break;
                                 }
                                 case "2" -> {       //[2] 회원가입
-                                    if (signup(br, pw, dbDriver)) break;
+                                    if (signup(br, pw, dbDriver))
+                                        break;
+                                    else
+                                        break;
                                 }
                                 case "3" -> {       //[3] 전체 프로그램 조회
                                     int loginFlag = 0;
                                     User user = null;
                                     for (User loginUser : loginUsers) {
                                         //비로그인 사용자 처리
-                                        if (loginUser.getThreadName().equals(Thread.currentThread().getName())) { //로그인 사용자
+                                        if (isLogin(loginUser)) { //로그인 사용자
                                             loginFlag = 1;
                                             user = loginUser;
                                             break;
@@ -194,7 +197,7 @@ public class ConcurrentServer {
                                     String userid = "";
                                     int loginFlag = 0;
                                     for (User loginUser : loginUsers) {
-                                        if (loginUser.getThreadName().equals(Thread.currentThread().getName())) { //로그인 사용자
+                                        if (isLogin(loginUser)) { //로그인 사용자
                                             userid = loginUser.getUserid();
                                             loginFlag = 1;
                                             break;
@@ -239,6 +242,10 @@ public class ConcurrentServer {
                         } catch (IOException e2) {
                         }
                     }
+                }
+
+                private boolean isLogin(User loginUser) {
+                    return loginUser.getThreadName().equals(Thread.currentThread().getName());
                 }
 
                 private void cancelUserLecture(BufferedReader br, PrintWriter pw, DBDriver dbDriver, String userid) throws IOException {
@@ -923,7 +930,7 @@ public class ConcurrentServer {
                 conn = DriverManager.getConnection(URL, USER, PASSWORD); // Connection 생성
 
                 String sql;
-                sql = "select * from registration where lecture_id =? and user_id = ?";
+                sql = "select user_id, lecture_id from registration where lecture_id =? and user_id = ?"; // registration_id 추가
                 pstmt = conn.prepareStatement(sql); // PreParedStatement 객체 생성, 객체 생성시 SQL 문장 저장
 
                 pstmt.setInt(1, lectureId);
