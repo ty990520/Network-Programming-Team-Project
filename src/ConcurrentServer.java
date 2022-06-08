@@ -3,7 +3,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-
 import java.sql.*;
 import java.util.Iterator;
 import java.util.List;
@@ -19,16 +18,23 @@ public class ConcurrentServer {
     public static final int PORT = 9309;
     private static final int MAX_THREAD = 5;
     private static int RUN_THREAD = 0;
-    static ExecutorService executorService = Executors.newFixedThreadPool(MAX_THREAD); // 스레드 풀
+    static ExecutorService executorService;
     static ServerSocket serverSocket;
     static List<Client> connections = new Vector<Client>();
     static List<User> loginUsers = new Vector<User>();
 
 
     static void startServer() { // 서버 시작 시 호출
+        long startTime = System.nanoTime();
+        executorService = Executors.newFixedThreadPool(MAX_THREAD); // 스레드 풀
+        long finishTime = System.nanoTime();
+        long elapsedTime = finishTime - startTime;
+        System.out.println("[스레드풀 사용]"+MAX_THREAD+"개의 스레드를 생성하는 데 걸린 시간(ns) : " + elapsedTime);
 
         // 서버 소켓 생성 및 바인딩
         if (createServerSocketAndBind()) return;
+
+//        long startTime = System.nanoTime();
 
         // 수락 작업 생성
         Runnable runnable = () -> {
@@ -38,17 +44,22 @@ public class ConcurrentServer {
         };
         // 스레드풀에서 처리
         executorService.submit(runnable);
+//        long finishTime = System.nanoTime();
+//        long elapsedTime = finishTime - startTime;
+//        System.out.println("[스레드풀 사용]메인 스레드를 생성하는 데 걸린 시간(ns) : " + elapsedTime);
     }
 
     private static boolean acceptClient() {
         try {
+
             // 연결 수락
             Socket socket = serverSocket.accept();
+
             System.out.println("[연결 수락: " + socket.getRemoteSocketAddress() + " : " + Thread.currentThread().getName() + "]");
 
-            // 클라이언트 접속 요청 시 객체 하나씩 생성해서 저장
-            Client client = new Client(socket);
+
             RUN_THREAD++;
+
             if (RUN_THREAD >= MAX_THREAD) {
                 OutputStream os = socket.getOutputStream();
                 OutputStreamWriter osw = new OutputStreamWriter(os, "euc-kr");
@@ -56,10 +67,18 @@ public class ConcurrentServer {
 
                 pw.write("접속 가능 인원이 초과하여 접속이 불가능합니다.\n잠시만 기다려주세요...\n");
                 pw.flush();
+                System.out.println("[연결 거부: " + socket.getRemoteSocketAddress() + " : " + Thread.currentThread().getName() + "]");
+
+                RUN_THREAD--;
+                return false;
             }
+
+            // 클라이언트 접속 요청 시 객체 하나씩 생성해서 저장
+            Client client = new Client(socket);
 
             connections.add(client);
             System.out.println("[연결 개수: " + RUN_THREAD + "]");
+
 
         } catch (Exception e) {
             if (!serverSocket.isClosed()) {
