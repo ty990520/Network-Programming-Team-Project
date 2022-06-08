@@ -14,71 +14,42 @@ import java.util.concurrent.Executors;
 // multi-thread / thread pool
 // Mutual Exclusion (synchronized)
 
-public class ConcurrentServer {
-    public static final int PORT = 9309;
-    private static final int MAX_THREAD = 5;
-    private static int RUN_THREAD = 0;
-    static ExecutorService executorService;
+public class ConcurrentServerWithProcess {
+    public static final int PORT = 9305;
+    static Runtime runtime;
+    //    private static final int MAX_THREAD = 5;
+//    private static int RUN_THREAD = 0;
+//    static ExecutorService executorService = Executors.newFixedThreadPool(MAX_THREAD); // 스레드 풀
     static ServerSocket serverSocket;
     static List<Client> connections = new Vector<Client>();
     static List<User> loginUsers = new Vector<User>();
 
 
     static void startServer() { // 서버 시작 시 호출
-        long startTime = System.nanoTime();
-        executorService = Executors.newFixedThreadPool(MAX_THREAD); // 스레드 풀
-        long finishTime = System.nanoTime();
-        long elapsedTime = finishTime - startTime;
-        System.out.println("[스레드풀 사용]"+MAX_THREAD+"개의 스레드를 생성하는 데 걸린 시간(ns) : " + elapsedTime);
 
         // 서버 소켓 생성 및 바인딩
         if (createServerSocketAndBind()) return;
 
-//        long startTime = System.nanoTime();
-
-        // 수락 작업 생성
-        Runnable runnable = () -> {
-            while (true) {
-                if (acceptClient()) break;
+        while (true) {
+            if (acceptClient()) {
+                break;
             }
-        };
+        }
+
         // 스레드풀에서 처리
-        executorService.submit(runnable);
-//        long finishTime = System.nanoTime();
-//        long elapsedTime = finishTime - startTime;
-//        System.out.println("[스레드풀 사용]메인 스레드를 생성하는 데 걸린 시간(ns) : " + elapsedTime);
+//        executorService.submit(runnable);
     }
 
     private static boolean acceptClient() {
         try {
-
             // 연결 수락
             Socket socket = serverSocket.accept();
-
-            System.out.println("[연결 수락: " + socket.getRemoteSocketAddress() + " : " + Thread.currentThread().getName() + "]");
-
-
-            RUN_THREAD++;
-
-            if (RUN_THREAD >= MAX_THREAD) {
-                OutputStream os = socket.getOutputStream();
-                OutputStreamWriter osw = new OutputStreamWriter(os, "euc-kr");
-                PrintWriter pw = new PrintWriter(osw, true);
-
-                pw.write("접속 가능 인원이 초과하여 접속이 불가능합니다.\n잠시만 기다려주세요...\n");
-                pw.flush();
-                System.out.println("[연결 거부: " + socket.getRemoteSocketAddress() + " : " + Thread.currentThread().getName() + "]");
-
-                RUN_THREAD--;
-                return false;
-            }
 
             // 클라이언트 접속 요청 시 객체 하나씩 생성해서 저장
             Client client = new Client(socket);
 
             connections.add(client);
-            System.out.println("[연결 개수: " + RUN_THREAD + "]");
-
+            System.out.println("[연결 개수: " + connections.size() + "]");
 
         } catch (Exception e) {
             if (!serverSocket.isClosed()) {
@@ -90,6 +61,8 @@ public class ConcurrentServer {
     }
 
     private static boolean createServerSocketAndBind() {
+        long startTime = System.currentTimeMillis();
+
         try {
             serverSocket = new ServerSocket();
 
@@ -98,17 +71,22 @@ public class ConcurrentServer {
 
             serverSocket.bind(new InetSocketAddress(localhost, PORT));
             System.out.println("[서버 시작: " + localhost + "]");
+
         } catch (Exception e) {
             if (!serverSocket.isClosed()) {
                 stopServer();
             }
             return true;
         }
+        long finishTime = System.currentTimeMillis();
+        long elapsedTime = finishTime - startTime;
+        System.out.println("[단일 프로세스 사용] 서버 소켓 생성 걸린 시간(ms) : " + elapsedTime);
+        System.out.println("서버소켓 생성 시 사용 메모리: " + (runtime.totalMemory()-runtime.freeMemory()));
+
         return false;
     }
 
     static void stopServer() { // 서버 종료 시 호출
-
         try {
             // 모든 소켓 닫기
             Iterator<Client> iterator = connections.iterator();
@@ -121,11 +99,9 @@ public class ConcurrentServer {
             if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
             }
-            // 스레드풀 종료
-            if (executorService != null && !executorService.isShutdown()) {
-                executorService.shutdown();
-            }
-            System.out.println("[서버 종료]");
+
+            System.out.println("[서버 멈춤]");
+            System.out.println("서버 종료시 사용 메모리: " + (runtime.totalMemory()-runtime.freeMemory()));
 
         } catch (Exception e) {
         }
@@ -136,344 +112,313 @@ public class ConcurrentServer {
 
         Client(Socket socket) {
             this.socket = socket;
+            System.out.println("클라이언트 소켓 생성 시 메모리: " + (runtime.totalMemory()-runtime.freeMemory()));
             service();
         }
 
         void service() {
-            Runnable runnable = new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        while (true) {
-                            String threadName = Thread.currentThread().getName();
-                            BufferedReader br = inputBuffer();
-                            PrintWriter pw = outputBuffer();
-                            String buffer = null;
+            // 받기 작업 생성
 
-                            buffer = br.readLine();
+            try {
+                while (true) {
+                    String threadName = Thread.currentThread().getName();
+                    BufferedReader br = inputBuffer();
+                    PrintWriter pw = outputBuffer();
+                    String buffer = null;
 
-                            if (buffer == null) {
-                                for (User loginUser : loginUsers) {
-                                    if (loginUser.getThreadName().equals(threadName)) { //로그인 사용자
-                                        loginUsers.remove(loginUser);
-                                        connections.remove(Client.this);
-                                    }
+                    buffer = br.readLine();
+
+                    if (buffer == null) {
+                        for (User loginUser : loginUsers) {
+                            if (loginUser.getThreadName().equals(threadName)) { //로그인 사용자
+                                loginUsers.remove(loginUser);
+                            }
+                        }
+                        System.out.println("[server] closed by client");
+                        break;
+                    }
+
+                    System.out.println("[요청 처리: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
+                    System.out.println("[server] recieved : " + buffer);
+
+                    System.out.println("객체생성 이후 ..............");
+
+                    DBDriver dbDriver = new DBDriver();
+
+                    switch (buffer) {
+                        case "1" -> {       //[1] 로그아웃 or 로그인
+                            int flag = 0;
+                            //로그아웃 요청인 경우
+                            flag = isLogout(pw, flag);
+                            //로그인 요청인 경우
+                            isLogin(br, pw, dbDriver, flag);
+                            break;
+                        }
+                        case "2" -> {       //[2] 회원가입
+                            if (signup(br, pw, dbDriver)) break;
+                        }
+                        case "3" -> {       //[3] 전체 프로그램 조회
+                            int loginFlag = 0;
+                            User user = null;
+                            for (User loginUser : loginUsers) {
+                                //비로그인 사용자 처리
+                                if (loginUser.getThreadName().equals(Thread.currentThread().getName())) { //로그인 사용자
+                                    loginFlag = 1;
+                                    user = loginUser;
+                                    break;
                                 }
-                                System.out.println("[연결 종료: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
-                                RUN_THREAD--;
-
-                                break;
                             }
 
-                            System.out.println("[요청 처리: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
-                            System.out.println("[클라이언트 입력: " + buffer + "]");
-
-                            DBDriver dbDriver = new DBDriver();
-
-                            switch (buffer) {
-                                case "1" -> {       //[1] 로그아웃 or 로그인
-                                    int flag = 0;
-                                    //로그아웃 요청인 경우
-                                    flag = isLogout(pw, flag);
-                                    //로그인 요청인 경우
-                                    isLogin(br, pw, dbDriver, flag);
+                            //전체 프로그램 조회
+                            selectAllLecture(pw, dbDriver);
+                            buffer = br.readLine();                                    //세부 메뉴 선택
+                            if (buffer.equals("1")) {               //1) 프로그램 신청
+                                checkLoginUserRegister(br, pw, dbDriver, loginFlag, user);
+                            } else if (buffer.equals("2")) {        //2) 나가기
+                                pw.println(printMenu(loginFlag));
+                                continue;
+                            } else {
+                                pw.println("[FAILURE] 잘못된 입력입니다.");
+                                continue;
+                            }
+                            break;
+                        }
+                        case "4" -> {       //[4] 수강 신청 조회
+                            String userid = "";
+                            int loginFlag = 0;
+                            for (User loginUser : loginUsers) {
+                                if (loginUser.getThreadName().equals(Thread.currentThread().getName())) { //로그인 사용자
+                                    userid = loginUser.getUserid();
+                                    loginFlag = 1;
                                     break;
                                 }
-                                case "2" -> {       //[2] 회원가입
-                                    if (signup(br, pw, dbDriver)) break;
-                                }
-                                case "3" -> {       //[3] 전체 프로그램 조회
-                                    int loginFlag = 0;
-                                    User user = null;
-                                    for (User loginUser : loginUsers) {
-                                        //비로그인 사용자 처리
-                                        if (loginUser.getThreadName().equals(Thread.currentThread().getName())) { //로그인 사용자
-                                            loginFlag = 1;
-                                            user = loginUser;
-                                            break;
-                                        }
-                                    }
+                            }
 
-                                    //전체 프로그램 조회
-                                    selectAllLecture(pw, dbDriver);
-                                    buffer = br.readLine();                                    //세부 메뉴 선택
-                                    if (buffer.equals("1")) {               //1) 프로그램 신청
-                                        checkLoginUserRegister(br, pw, dbDriver, loginFlag, user);
-                                    } else if (buffer.equals("2")) {        //2) 나가기
-                                        pw.println(printMenu(loginFlag));
-                                        continue;
-                                    } else {
-                                        pw.println("[FAILURE] 잘못된 입력입니다.");
-                                        continue;
-                                    }
-                                    break;
-                                }
-                                case "4" -> {       //[4] 수강 신청 조회
-                                    String userid = "";
-                                    int loginFlag = 0;
-                                    for (User loginUser : loginUsers) {
-                                        if (loginUser.getThreadName().equals(Thread.currentThread().getName())) { //로그인 사용자
-                                            userid = loginUser.getUserid();
-                                            loginFlag = 1;
-                                            break;
-                                        }
-                                    }
+                            if (checkLoginUserRegisterList(pw, loginFlag)) {
+                                selectMyLecture(pw, dbDriver, userid);
+                                buffer = br.readLine();
 
-                                    if (checkLoginUserRegisterList(pw, loginFlag)) {
-                                        selectMyLecture(pw, dbDriver, userid);
-                                        buffer = br.readLine();
-
-                                        if (buffer.equals("1")) {           //1) 프로그램 신청 취소
-                                            cancelUserLecture(br, pw, dbDriver, userid);
-                                        } else if (buffer.equals("2")) {    //2) 나가기
-                                            pw.println(printMenu(loginFlag));
-                                            continue;
-                                        } else {
-                                            pw.println("[FAILURE] 잘못된 입력입니다.");
-                                            continue;
-                                        }
-                                        continue;
-                                    }
-                                    break;
-                                }
-                                default -> {  // 이상한 번호를 눌렀을 경우
+                                if (buffer.equals("1")) {           //1) 프로그램 신청 취소
+                                    cancelUserLecture(br, pw, dbDriver, userid);
+                                } else if (buffer.equals("2")) {    //2) 나가기
+                                    pw.println(printMenu(loginFlag));
+                                    continue;
+                                } else {
                                     pw.println("[FAILURE] 잘못된 입력입니다.");
                                     continue;
                                 }
+                                continue;
                             }
-                        }
-                    } catch (Exception e) {
-                        try {
-                            for (User loginUser : loginUsers) {
-                                if (loginUser.getThreadName().equals(Thread.currentThread().getName())) { //로그인 사용자
-                                    loginUsers.remove(loginUser);
-                                }
-                            }
-
-                            connections.remove(Client.this);
-                            socket.close();
-                            System.out.println("[클라이언트 통신 안됨 : " + socket.getRemoteSocketAddress() + " : " + Thread.currentThread().getName() + "]");
-                            RUN_THREAD--;
-                        } catch (IOException e2) {
-                        }
-                    }
-                }
-
-                private void cancelUserLecture(BufferedReader br, PrintWriter pw, DBDriver dbDriver, String userid) throws IOException {
-                    pw.println("취소를 원하는 프로그램의 강의 번호를 입력해주세요.");
-                    boolean check = true;
-                    while (check) {
-                        int lectureId = Integer.parseInt(br.readLine());
-                        check = cancel(pw, dbDriver, userid, lectureId);
-                    }
-                }
-
-                private void selectMyLecture(PrintWriter pw, DBDriver dbDriver, String userid) {
-                    pw.println("--------- 수강 신청 조회 ---------\n"
-                            + "| 강의 번호\t| 강의명\t\t| 담당 기관\t\t| 담당 직원\t| 수강가능 연령\t| 신청 인원\t| 수강 인원\t|\n"
-                            + dbDriver.DBSelectByUserId(userid) + "\n[1] 수강 신청 취소\n[2] 나가기");
-                }
-
-                private void selectAllLecture(PrintWriter pw, DBDriver dbDriver) {
-                    pw.println("--------- 전체 프로그램 조회 ---------\n"
-                            + "| 강의 번호\t| 강의명\t\t| 담당 기관\t\t| 담당 직원\t| 수강가능 연령\t| 신청 인원\t| 수강 인원\t|\n"
-                            + dbDriver.DBSelect() + "\n[1] 프로그램 신청하기\n[2] 나가기");
-                }
-
-                private void checkLoginUserRegister(BufferedReader br, PrintWriter pw, DBDriver dbDriver, int loginFlag, User user) throws IOException {
-                    if (loginFlag == 0) { //비로그인 사용자
-                        pw.println("[FAILURE] 프로그램 신청을 위해 먼저 로그인해주세요.\n" + printMenu(loginFlag));
-                    } else {
-                        boolean check = true;
-                        pw.println("신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
-                        while (check) {
-                            int lectureId = Integer.parseInt(br.readLine());
-                            check = register(pw, dbDriver, user, lectureId);
-                        }
-                    }
-                }
-
-                private boolean checkLoginUserRegisterList(PrintWriter pw, int loginFlag) throws IOException {
-                    if (loginFlag == 0) { // 비로그인 사용자
-                        pw.println("[FAILURE] 잘못된 입력입니다.\n" + printMenu(loginFlag));
-                        return false;
-                    } else {
-                        return true;
-                    }
-                }
-
-                private synchronized boolean signup(BufferedReader br, PrintWriter pw, DBDriver dbDriver) throws IOException {
-                    pw.println("--------- 회원가입 ---------\n등록할 사용자 아이디를 입력해주세요.");
-                    boolean check = true;
-                    String userid = "";
-
-                    userid = checkDuplicate(br, pw, dbDriver, check, userid);   //아이디 중복 체크
-                    pw.println("등록할 사용자 패스워드를 입력해주세요.");
-                    String password = userInput(br);
-                    if (password == null) return true;
-                    pw.println("등록할 사용자의 나이를 입력해주세요.");
-                    String age = userInput(br);
-                    if (age == null) return true;
-                    pw.println("등록할 사용자 전화번호를 입력해주세요. (010-0000-0000)");
-                    String phone = userInput(br);
-                    if (phone == null) return true;
-
-                    int result = dbDriver.DBInsert(userid, password, age, phone);
-                    if (result != 0) {
-                        pw.println("[SUCCESS] 회원가입을 완료하였습니다!");
-                        System.out.println(userid + "님 회원가입 완료");
-                    } else pw.println("[FAILURE] 회원가입에 실패하였습니다. 다시 시도해주세요.");
-                    return false;
-                }
-
-                private String checkDuplicate(BufferedReader br, PrintWriter pw, DBDriver dbDriver, boolean check, String userid) throws IOException {
-                    while (check) {
-                        userid = userInput(br);
-                        if (userid == null) break;
-
-                        check = dbDriver.checkUserId(userid);
-
-                        if (check)
-                            pw.println("[FAILURE] 중복된 아이디가 있습니다. 다시 입력해주세요.\n등록할 사용자 아이디를 입력해주세요.");
-                        else
                             break;
-                    }
-                    return userid;
-                }
-
-                private void isLogin(BufferedReader br, PrintWriter pw, DBDriver dbDriver, int flag) throws IOException {
-                    if (flag == 0) {   //로그인
-                        pw.println("--------- 로그인 ---------\n사용자 아이디를 입력해주세요.");
-                        while (true) {
-                            String userid = userInput(br);
-                            pw.println("사용자 패스워드를 입력해주세요.");
-                            String password = userInput(br);
-                            boolean login = false;
-
-                            login = dbDriver.checkPassword(userid, password);
-                            if (login) {
-                                pw.println("[LOGIN] 로그인을 완료하였습니다!");    //클라이언트 코드에서 flag로 로그아웃 제어
-                                dbDriver.DBSelectFindUser(userid, Thread.currentThread().getName());
-                                System.out.println("|\t아이디\t|\t비밀번호\t|\t나이\t|\t전화번호\t\t\t|\t스레드명\t\t\t|");
-                                for (User loginUser : loginUsers) {
-                                    System.out.println("|\t" + loginUser.getUserid() + "\t|\t" + loginUser.getUserpw() +
-                                            "\t|\t" + loginUser.getAge() + "\t|\t" + loginUser.getPhone() +
-                                            "\t|\t" + loginUser.getThreadName() + "\t|");
-                                }
-                                break;
-                            } else {
-                                pw.println("[FAILURE] 로그인에 실패하였습니다. 다시 시도해주세요.\n사용자 아이디를 입력해주세요.");
-                            }
+                        }
+                        default -> {  // 이상한 번호를 눌렀을 경우
+                            pw.println("[FAILURE] 잘못된 입력입니다.");
+                            continue;
                         }
                     }
                 }
-
-                private int isLogout(PrintWriter pw, int flag) {
+            } catch (Exception e) {
+                try {
                     for (User loginUser : loginUsers) {
-                        if (loginUser.getThreadName().equals(Thread.currentThread().getName())) {   //로그아웃
-                            flag = 1;
-                            // 로그인 사용자 리스트에서 정보 지움
+                        if (loginUser.getThreadName().equals(Thread.currentThread().getName())) { //로그인 사용자
                             loginUsers.remove(loginUser);
-                            pw.println("[LOGOUT] 로그아웃되었습니다.");
-                            break;
                         }
                     }
-                    return flag;
-                }
+                    connections.remove(Client.this);
+                    System.out.println("[클라이언트 통신 안됨: " + socket.getRemoteSocketAddress() + ": " + Thread.currentThread().getName() + "]");
+                    socket.close();
+                    System.out.println("클라이언트 종료 시 사용 메모리: " + (runtime.totalMemory()-runtime.freeMemory()));
 
-                private PrintWriter outputBuffer() throws IOException {
-                    OutputStream os = socket.getOutputStream();
-                    OutputStreamWriter osw = new OutputStreamWriter(os, "euc-kr");
-                    PrintWriter pw = new PrintWriter(osw, true);
-                    return pw;
+                } catch (IOException e2) {
                 }
+            }
+        }
 
-                private BufferedReader inputBuffer() throws IOException {
-                    InputStream is = socket.getInputStream();
-                    InputStreamReader isr = new InputStreamReader(is, "euc-kr");
-                    BufferedReader br = new BufferedReader(isr);
-                    return br;
+        private void cancelUserLecture(BufferedReader br, PrintWriter pw, DBDriver dbDriver, String userid) throws IOException {
+            pw.println("취소를 원하는 프로그램의 강의 번호를 입력해주세요.");
+            boolean check = true;
+            while (check) {
+                int lectureId = Integer.parseInt(br.readLine());
+                check = cancel(pw, dbDriver, userid, lectureId);
+            }
+        }
+
+        private void selectMyLecture(PrintWriter pw, DBDriver dbDriver, String userid) {
+            pw.println("--------- 수강 신청 조회 ---------\n"
+                    + "| 강의 번호\t| 강의명\t\t| 담당 기관\t\t| 담당 직원\t| 수강가능 연령\t| 신청 인원\t| 수강 인원\t|\n"
+                    + dbDriver.DBSelectByUserId(userid) + "\n[1] 수강 신청 취소\n[2] 나가기");
+        }
+
+        private void selectAllLecture(PrintWriter pw, DBDriver dbDriver) {
+            pw.println("--------- 전체 프로그램 조회 ---------\n"
+                    + "| 강의 번호\t| 강의명\t\t| 담당 기관\t\t| 담당 직원\t| 수강가능 연령\t| 신청 인원\t| 수강 인원\t|\n"
+                    + dbDriver.DBSelect() + "\n[1] 프로그램 신청하기\n[2] 나가기");
+        }
+
+        private void checkLoginUserRegister(BufferedReader br, PrintWriter pw, DBDriver dbDriver, int loginFlag, User user) throws IOException {
+            if (loginFlag == 0) { //비로그인 사용자
+                pw.println("[FAILURE] 프로그램 신청을 위해 먼저 로그인해주세요.\n" + printMenu(loginFlag));
+            } else {
+                boolean check = true;
+                pw.println("신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
+                while (check) {
+                    int lectureId = Integer.parseInt(br.readLine());
+                    check = register(pw, dbDriver, user, lectureId);
                 }
+            }
+        }
 
-                private synchronized boolean register(PrintWriter pw, DBDriver dbDriver, User loginUser, int lectureId) {
-                    if (dbDriver.isNotFull(lectureId)) {                                              //검증1 : 프로그램 인원 제한 검증
-                        if (!dbDriver.alreadyRegister(lectureId, loginUser.getUserid())) {            //검증2 : 이미 등록한 사용자 검증
-                            if (dbDriver.validationRegister(lectureId, loginUser.getAge())) {       //검증3 : 프로그램 신청 조건 만족 여부 검증
-                                int result = dbDriver.registerLecture(loginUser.getUserid(), lectureId);
-                                if (result == 1) {
-                                    dbDriver.DBUpdateLectureCnt(1, lectureId);
-                                    pw.println("[SUCCESS] 프로그램이 신청되었습니다.");
-                                    return false;
-                                } else {
-                                    pw.println("[FAILURE] 프로그램 신청을 실패하였습니다.\n신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
-                                    return true;
-                                }
-                            } else {
-                                pw.println("[FAILURE] 해당 프로그램의 신청 조건이 만족되지 않았습니다.\n신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
-                                return true;
-                            }
+        private boolean checkLoginUserRegisterList(PrintWriter pw, int loginFlag) throws IOException {
+            if (loginFlag == 0) { // 비로그인 사용자
+                pw.println("[FAILURE] 잘못된 입력입니다.\n" + printMenu(loginFlag));
+                return false;
+            } else {
+                return true;
+            }
+        }
+
+        private synchronized boolean signup(BufferedReader br, PrintWriter pw, DBDriver dbDriver) throws IOException {
+            pw.println("--------- 회원가입 ---------\n등록할 사용자 아이디를 입력해주세요.");
+            boolean check = true;
+            String userid = "";
+
+            userid = checkDuplicate(br, pw, dbDriver, check, userid);   //아이디 중복 체크
+            pw.println("등록할 사용자 패스워드를 입력해주세요.");
+            String password = userInput(br);
+            if (password == null) return true;
+            pw.println("등록할 사용자의 나이를 입력해주세요.");
+            String age = userInput(br);
+            if (age == null) return true;
+            pw.println("등록할 사용자 전화번호를 입력해주세요. (010-0000-0000)");
+            String phone = userInput(br);
+            if (phone == null) return true;
+
+            int result = dbDriver.DBInsert(userid, password, age, phone);
+            if (result != 0) {
+                pw.println("[SUCCESS] 회원가입을 완료하였습니다!");
+                System.out.println(userid + "님 회원가입 완료");
+            } else pw.println("[FAILURE] 회원가입에 실패하였습니다. 다시 시도해주세요.");
+            return false;
+        }
+
+        private String checkDuplicate(BufferedReader br, PrintWriter pw, DBDriver dbDriver, boolean check, String userid) throws IOException {
+            while (check) {
+                userid = userInput(br);
+                if (userid == null) break;
+
+                check = dbDriver.checkUserId(userid);
+
+                if (check)
+                    pw.println("[FAILURE] 중복된 아이디가 있습니다. 다시 입력해주세요.\n등록할 사용자 아이디를 입력해주세요.");
+                else
+                    break;
+            }
+            return userid;
+        }
+
+        private void isLogin(BufferedReader br, PrintWriter pw, DBDriver dbDriver, int flag) throws IOException {
+            if (flag == 0) {   //로그인
+                pw.println("--------- 로그인 ---------\n사용자 아이디를 입력해주세요.");
+                while (true) {
+                    String userid = userInput(br);
+                    pw.println("사용자 패스워드를 입력해주세요.");
+                    String password = userInput(br);
+                    boolean login = false;
+
+                    login = dbDriver.checkPassword(userid, password);
+                    if (login) {
+                        pw.println("[LOGIN] 로그인을 완료하였습니다!");    //클라이언트 코드에서 flag로 로그아웃 제어
+                        dbDriver.DBSelectFindUser(userid, Thread.currentThread().getName());
+                        System.out.println("|\t아이디\t|\t비밀번호\t|\t나이\t|\t전화번호\t\t|\t스레드명\t\t|");
+                        for (User loginUser : loginUsers) {
+                            System.out.println("|\t" + loginUser.getUserid() + "\t|\t" + loginUser.getUserpw() +
+                                    "\t|\t" + loginUser.getAge() + "\t|\t" + loginUser.getPhone() +
+                                    "\t|\t" + loginUser.getThreadName() + "\t|");
+                        }
+                        break;
+                    } else {
+                        pw.println("[FAILURE] 로그인에 실패하였습니다. 다시 시도해주세요.\n사용자 아이디를 입력해주세요.");
+                    }
+                }
+            }
+        }
+
+        private int isLogout(PrintWriter pw, int flag) {
+            for (User loginUser : loginUsers) {
+                if (loginUser.getThreadName().equals(Thread.currentThread().getName())) {   //로그아웃
+                    flag = 1;
+                    // 로그인 사용자 리스트에서 정보 지움
+                    loginUsers.remove(loginUser);
+                    pw.println("[LOGOUT] 로그아웃되었습니다.");
+                    break;
+                }
+            }
+            return flag;
+        }
+
+        private PrintWriter outputBuffer() throws IOException {
+            OutputStream os = socket.getOutputStream();
+            OutputStreamWriter osw = new OutputStreamWriter(os, "euc-kr");
+            PrintWriter pw = new PrintWriter(osw, true);
+            return pw;
+        }
+
+        private BufferedReader inputBuffer() throws IOException {
+            InputStream is = socket.getInputStream();
+            InputStreamReader isr = new InputStreamReader(is, "euc-kr");
+            BufferedReader br = new BufferedReader(isr);
+            return br;
+        }
+
+        private synchronized boolean register(PrintWriter pw, DBDriver dbDriver, User loginUser, int lectureId) {
+            if (dbDriver.isNotFull(lectureId)) {                                              //검증1 : 프로그램 인원 제한 검증
+                if (!dbDriver.alreadyRegister(lectureId, loginUser.getUserid())) {            //검증2 : 이미 등록한 사용자 검증
+                    if (dbDriver.validationRegister(lectureId, loginUser.getAge())) {       //검증3 : 프로그램 신청 조건 만족 여부 검증
+                        int result = dbDriver.registerLecture(loginUser.getUserid(), lectureId);
+                        if (result == 1) {
+                            dbDriver.DBUpdateLectureCnt(1, lectureId);
+                            pw.println("[SUCCESS] 프로그램이 신청되었습니다.");
+                            return false;
                         } else {
-                            pw.println("[FAILURE] 이미 신청한 프로그램입니다.\n신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
+                            pw.println("[FAILURE] 프로그램 신청을 실패하였습니다.\n신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
                             return true;
                         }
                     } else {
-                        pw.println("[FAILURE] 프로그램 수강 가능 인원이 다 찼습니다.\n신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
+                        pw.println("[FAILURE] 해당 프로그램의 신청 조건이 만족되지 않았습니다.\n신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
                         return true;
                     }
+                } else {
+                    pw.println("[FAILURE] 이미 신청한 프로그램입니다.\n신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
+                    return true;
                 }
-
-                private synchronized boolean cancel(PrintWriter pw, DBDriver dbDriver, String userid, int lectureId) {
-                    if (dbDriver.alreadyRegister(lectureId, userid)) {
-                        dbDriver.DBUpdateLectureCnt(2, lectureId);
-                        dbDriver.DBDelete(lectureId, userid);
-                        pw.println("[SUCCESS] 프로그램이 취소되었습니다.");
-                        return false;
-                    } else {
-                        pw.println("[FAILURE] 신청하지 않은 프로그램입니다.\n취소를 원하는 프로그램의 강의 번호를 입력해주세요.");
-                        return true;
-                    }
-                }
-
-
-                private String userInput(BufferedReader br) throws IOException {
-                    String userdata = br.readLine();
-                    if (userdata.equals("")) {
-                        System.out.println("회원가입을 취소합니다.");
-                        return null;
-                    }
-                    return userdata;
-                }
-            };
-            // 스레드풀에서 처리
-            executorService.submit(runnable);
+            } else {
+                pw.println("[FAILURE] 프로그램 수강 가능 인원이 다 찼습니다.\n신청을 원하는 프로그램의 강의 번호를 입력해주세요.");
+                return true;
+            }
         }
 
-        void send(String data) {
-            // 보내기 작업 생성
-            Runnable runnable = new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        // 클라이언트로 데이터 보내기
-                        byte[] byteArr = data.getBytes("euc-kr");
-                        OutputStream outputStream = socket.getOutputStream();
-                        // 데이터 write
-                        outputStream.write(byteArr);
-                        outputStream.flush();
-                    } catch (Exception e) {
-                        try {
-                            System.out.println("[클라이언트 통신 안됨 : " + socket.getRemoteSocketAddress() + " : " + Thread.currentThread().getName() + "]");
-                            connections.remove(Client.this);
-                            socket.close();
-                            RUN_THREAD--;
-                        } catch (IOException e2) {
-                        }
-                    }
-                }
-            };
-            // 스레드풀에서 처리
-            executorService.submit(runnable);
+        private synchronized boolean cancel(PrintWriter pw, DBDriver dbDriver, String userid, int lectureId) {
+            if (dbDriver.alreadyRegister(lectureId, userid)) {
+                dbDriver.DBUpdateLectureCnt(2, lectureId);
+                dbDriver.DBDelete(lectureId, userid);
+                pw.println("[SUCCESS] 프로그램이 취소되었습니다.");
+                return false;
+            } else {
+                pw.println("[FAILURE] 신청하지 않은 프로그램입니다.\n취소를 원하는 프로그램의 강의 번호를 입력해주세요.");
+                return true;
+            }
         }
+
+
+        private String userInput(BufferedReader br) throws IOException {
+            String userdata = br.readLine();
+            if (userdata.equals("")) {
+                System.out.println("회원가입을 취소합니다.");
+                return null;
+            }
+            return userdata;
+        }
+
     }
 
     static String printMenu(int loginFlag) {
@@ -502,8 +447,8 @@ public class ConcurrentServer {
     public static class DBDriver {
         private final static String URL = "jdbc:mysql://localhost:3306/jdbc?serverTimezone=Asia/Seoul&useSSL=false";
         private final static String USER = "root";
-        //        private final static String PASSWORD = "sun009538!@!";
-        private final static String PASSWORD = "1234";
+        private final static String PASSWORD = "sun009538!@!";
+//        private final static String PASSWORD = "1234";
 
         public String DBSelect() {
             Connection conn = null;
@@ -532,37 +477,40 @@ public class ConcurrentServer {
                             + cntParticipant + "\t\t| " + maxParticipant + "\t\t|\n";
                 }
 
+//                 if(rs.next()) { // ResultSet에 저장된 데이터 얻기 (결과 1개)
+//
+//                 }
+//                 else {
+//
+//                 }
+
             } catch (SQLException e) {
                 System.out.println("SQL Error : " + e.getMessage());
             } finally {
                 // 사용순서와 반대로 close 함
-                finallyContent(conn, stmt, rs);
+                if (rs != null) {
+                    try {
+                        rs.close();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (stmt != null) {
+                    try {
+                        stmt.close();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (conn != null) {
+                    try {
+                        conn.close();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
             }
             return result;
-        }
-
-        private void finallyContent(Connection conn, Statement stmt, ResultSet rs) {
-            if (rs != null) {
-                try {
-                    rs.close();
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
-            if (stmt != null) {
-                try {
-                    stmt.close();
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
-            if (conn != null) {
-                try {
-                    conn.close();
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
         }
 
         public String DBSelectByUserId(String userid) {
@@ -969,6 +917,8 @@ public class ConcurrentServer {
     }
 
     public static void main(String[] args) {
+        runtime = Runtime.getRuntime();
+
         startServer();
     }
 }
